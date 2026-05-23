@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile — Video Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .container { width: 100%; max-width: 480px; }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .page-header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+  .page-header a {
+    font-size: 12px;
+    color: #555;
+    text-decoration: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    padding: 4px 10px;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .page-header a:hover { color: #fff; border-color: #555; }
+
+  section {
+    background: #141414;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  section h2 {
+    font-size: 13px; font-weight: 700; color: #aaa;
+    letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 20px;
+  }
+
+  /* Avatar */
+  .avatar-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  #avatar-wrap {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #1e1e1e;
+    border: 2px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+    flex-shrink: 0;
+  }
+  #avatar-wrap:hover { border-color: #e63946; }
+  #avatar-wrap .initial {
+    font-size: 38px;
+    font-weight: 700;
+    color: #444;
+    line-height: 1;
+    user-select: none;
+  }
+  #avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-size: 11px;
+    color: #fff;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  #avatar-wrap:hover .avatar-overlay { opacity: 1; }
+
+  #avatar-input { display: none; }
+  .avatar-hint { font-size: 11px; color: #555; text-align: center; }
+
+  .btn-save-avatar {
+    background: #e63946;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: background 0.1s;
+    display: none;
+  }
+  .btn-save-avatar:hover { background: #c1121f; }
+  .btn-save-avatar:disabled { opacity: 0.6; cursor: default; }
+
+  /* Password */
+  .field { margin-bottom: 14px; }
+  label {
+    display: block;
+    font-size: 11px; color: #666;
+    margin-bottom: 5px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  input[type="password"] {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 9px 11px;
+    color: #e0e0e0;
+    font-size: 13px;
+    outline: none;
+  }
+  input[type="password"]:focus { border-color: #e63946; }
+
+  .btn-save {
+    background: #e63946;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 20px;
+    cursor: pointer;
+    transition: background 0.1s;
+    margin-top: 4px;
+  }
+  .btn-save:hover { background: #c1121f; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 13px;
+    color: #e0e0e0;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { border-color: #5c1a1a; color: #ff6b6b; background: #1a0a0d; }
+  .toast.success { border-color: #1a5c1a; color: #6bff6b; background: #0a1a0d; }
+
+  /* Reset */
+  .btn-reset {
+    background: none;
+    border: 1px solid #3a1a1a;
+    border-radius: 6px;
+    color: #883333;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: border-color 0.1s, color 0.1s, background 0.1s;
+  }
+  .btn-reset:hover { background: #2a0a0d; color: #ff6b6b; border-color: #5c1a1a; }
+  .btn-reset:disabled { opacity: 0.5; cursor: default; }
+  .reset-desc { font-size: 11px; color: #555; margin-bottom: 10px; }
+
+  /* Meme */
+  .meme-status { font-size: 13px; color: #888; margin-bottom: 16px; }
+  .meme-btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-meme {
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: border-color 0.1s, color 0.1s;
+  }
+  .btn-meme:hover { border-color: #e63946; color: #fff; }
+  .btn-meme.active { border-color: #e63946; color: #e63946; }
+  .btn-meme:disabled { opacity: 0.5; cursor: default; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header">
+    <h1 id="page-title">Profile</h1>
+    <a href="/" id="back-link">&#8592; Back to viewer</a>
+  </div>
+
+  <section>
+    <h2 id="sec-avatar">Profile Picture</h2>
+    <div class="avatar-area">
+      <div id="avatar-wrap" onclick="document.getElementById('avatar-input').click()">
+        <span class="initial" id="avatar-initial"></span>
+        <div class="avatar-overlay" id="avatar-overlay-text">Change</div>
+      </div>
+      <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/webp">
+      <div class="avatar-hint" id="avatar-hint">Click to upload &middot; JPG, PNG, GIF, WEBP &middot; Max 2 MB</div>
+      <button class="btn-save-avatar" id="btn-save-avatar" onclick="saveAvatar()">Save Picture</button>
+    </div>
+  </section>
+
+  <section>
+    <h2 id="sec-password">Change Password</h2>
+    <div class="field">
+      <label id="lbl-current-pw">Current Password</label>
+      <input type="password" id="pw-current" autocomplete="current-password">
+    </div>
+    <div class="field">
+      <label id="lbl-new-pw">New Password</label>
+      <input type="password" id="pw-new" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label id="lbl-confirm-pw">Confirm New Password</label>
+      <input type="password" id="pw-confirm" autocomplete="new-password">
+    </div>
+    <button class="btn-save" id="btn-save-password" onclick="changePassword()">Update Password</button>
+  </section>
+
+  <section>
+    <h2 id="sec-meme">Meme on Login</h2>
+    <p class="meme-status" id="meme-status">Loading…</p>
+    <div class="meme-btn-row">
+      <button class="btn-meme" id="meme-btn-show"   onclick="setMemeSkip(null)">Show Memes</button>
+      <button class="btn-meme" id="meme-btn-now"    onclick="toggleSkipNow()">Skip For Now</button>
+      <button class="btn-meme" id="meme-btn-today"  onclick="setMemeSkip('today')">Skip Today</button>
+      <button class="btn-meme" id="meme-btn-week"   onclick="setMemeSkip('week')">Skip This Week</button>
+      <button class="btn-meme" id="meme-btn-always" onclick="setMemeSkip('always')">Skip Always</button>
+    </div>
+  </section>
+
+  <section>
+    <h2 id="sec-lang">Language</h2>
+    <div class="meme-btn-row">
+      <button class="btn-meme" id="lang-btn-en" onclick="saveLang('en')">English</button>
+      <button class="btn-meme" id="lang-btn-zh" onclick="saveLang('zh-TW')">繁體中文</button>
+    </div>
+  </section>
+
+  <section>
+    <h2 id="sec-reset">Reset</h2>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <p class="reset-desc" id="reset-view-desc">Clears sidebar width and collapse states stored in this browser.</p>
+        <button class="btn-reset" id="btn-reset-view" onclick="resetView()">Reset View</button>
+      </div>
+      <div>
+        <p class="reset-desc" id="reset-watch-desc">Permanently removes all episode watch progress from your account.</p>
+        <button class="btn-reset" id="btn-reset-watch" onclick="resetWatchRecords()">Reset Watch Records</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let pendingFile = null;
+let currentUsername = '';
+let currentLang = 'en';
+let currentMemeSkip = undefined;
+
+const T = {
+  en: {
+    pageTitle: 'Profile',
+    backLink: '← Back to viewer',
+    secAvatar: 'Profile Picture',
+    secPassword: 'Change Password',
+    secMeme: 'Meme on Login',
+    secLang: 'Language',
+    avatarHint: 'Click to upload · JPG, PNG, GIF, WEBP · Max 2 MB',
+    avatarOverlay: 'Change',
+    savePicture: 'Save Picture',
+    saving: 'Saving…',
+    lblCurrentPw: 'Current Password',
+    lblNewPw: 'New Password',
+    lblConfirmPw: 'Confirm New Password',
+    updatePassword: 'Update Password',
+    memeLoading: 'Loading…',
+    memeShow: 'Show Memes',
+    memeSkipNow: 'Skip For Now',
+    memeSkipToday: 'Skip Today',
+    memeSkipWeek: 'Skip This Week',
+    memeSkipAlways: 'Skip Always',
+    memeStatusShown: 'Memes are shown on login.',
+    memeStatusSession: 'Memes are skipped for this session only.',
+    memeStatusAlways: 'Memes are always skipped.',
+    memeStatusUntil: d => `Memes are skipped until ${d}.`,
+    toastPicUpdated: 'Profile picture updated.',
+    toastPwUpdated: 'Password updated.',
+    toastMemeSaved: 'Meme preference saved.',
+    toastLangSaved: 'Language saved.',
+    secReset: 'Reset',
+    resetViewDesc: 'Clears sidebar width and collapse states stored in this browser.',
+    resetWatchDesc: 'Permanently removes all episode watch progress from your account.',
+    btnResetView: 'Reset View',
+    btnResetWatch: 'Reset Watch Records',
+    resetWatchConfirm: 'Clear all watch progress? This cannot be undone.',
+    toastViewReset: 'View settings reset.',
+    toastWatchReset: 'Watch records cleared.',
+    errWatchResetFailed: 'Failed to clear watch records.',
+    errFieldsRequired: 'All fields are required.',
+    errPwNoMatch: 'New passwords do not match.',
+    errPwTooShort: 'New password must be at least 6 characters.',
+    errUploadFailed: 'Upload failed.',
+    errPwFailed: 'Failed to update password.',
+    errPrefFailed: 'Failed to save preference.',
+    errLangFailed: 'Failed to save language.',
+  },
+  'zh-TW': {
+    pageTitle: '個人資料',
+    backLink: '← 返回播放器',
+    secAvatar: '頭像',
+    secPassword: '變更密碼',
+    secMeme: '登入時顯示迷因',
+    secLang: '語言',
+    avatarHint: '點擊上傳 · JPG、PNG、GIF、WEBP · 最大 2 MB',
+    avatarOverlay: '變更',
+    savePicture: '儲存圖片',
+    saving: '儲存中…',
+    lblCurrentPw: '目前密碼',
+    lblNewPw: '新密碼',
+    lblConfirmPw: '確認新密碼',
+    updatePassword: '更新密碼',
+    memeLoading: '載入中…',
+    memeShow: '顯示迷因',
+    memeSkipNow: '本次跳過',
+    memeSkipToday: '今天跳過',
+    memeSkipWeek: '本週跳過',
+    memeSkipAlways: '永遠跳過',
+    memeStatusShown: '登入時會顯示迷因。',
+    memeStatusSession: '本次登入已跳過迷因。',
+    memeStatusAlways: '已設定永遠跳過迷因。',
+    memeStatusUntil: d => `迷因將跳過至 ${d}。`,
+    toastPicUpdated: '頭像已更新。',
+    toastPwUpdated: '密碼已更新。',
+    toastMemeSaved: '迷因偏好設定已儲存。',
+    toastLangSaved: '語言設定已儲存。',
+    secReset: '重置',
+    resetViewDesc: '清除儲存在此瀏覽器的側欄寬度與展開狀態。',
+    resetWatchDesc: '永久刪除帳號中所有集數的觀看進度。',
+    btnResetView: '重置介面',
+    btnResetWatch: '重置觀看紀錄',
+    resetWatchConfirm: '確定要清除所有觀看進度？此操作無法復原。',
+    toastViewReset: '介面設定已重置。',
+    toastWatchReset: '觀看紀錄已清除。',
+    errWatchResetFailed: '清除觀看紀錄失敗。',
+    errFieldsRequired: '所有欄位皆為必填。',
+    errPwNoMatch: '新密碼不一致。',
+    errPwTooShort: '新密碼至少需要 6 個字元。',
+    errUploadFailed: '上傳失敗。',
+    errPwFailed: '密碼更新失敗。',
+    errPrefFailed: '偏好設定儲存失敗。',
+    errLangFailed: '語言設定儲存失敗。',
+  },
+};
+
+function applyLang(lang) {
+  currentLang = lang;
+  const t = T[lang] || T.en;
+  document.title = t.pageTitle + ' — Video Viewer';
+  document.getElementById('page-title').textContent = t.pageTitle;
+  document.getElementById('back-link').textContent = t.backLink;
+  document.getElementById('sec-avatar').textContent = t.secAvatar;
+  document.getElementById('sec-password').textContent = t.secPassword;
+  document.getElementById('sec-meme').textContent = t.secMeme;
+  document.getElementById('sec-lang').textContent = t.secLang;
+  document.getElementById('avatar-hint').textContent = t.avatarHint;
+  document.getElementById('avatar-overlay-text').textContent = t.avatarOverlay;
+  document.getElementById('btn-save-avatar').textContent = t.savePicture;
+  document.getElementById('lbl-current-pw').textContent = t.lblCurrentPw;
+  document.getElementById('lbl-new-pw').textContent = t.lblNewPw;
+  document.getElementById('lbl-confirm-pw').textContent = t.lblConfirmPw;
+  document.getElementById('btn-save-password').textContent = t.updatePassword;
+  document.getElementById('meme-btn-show').textContent = t.memeShow;
+  document.getElementById('meme-btn-now').textContent = t.memeSkipNow;
+  document.getElementById('meme-btn-today').textContent = t.memeSkipToday;
+  document.getElementById('meme-btn-week').textContent = t.memeSkipWeek;
+  document.getElementById('meme-btn-always').textContent = t.memeSkipAlways;
+  document.getElementById('lang-btn-en').classList.toggle('active', lang === 'en');
+  document.getElementById('lang-btn-zh').classList.toggle('active', lang === 'zh-TW');
+  document.getElementById('sec-reset').textContent = t.secReset;
+  document.getElementById('reset-view-desc').textContent = t.resetViewDesc;
+  document.getElementById('reset-watch-desc').textContent = t.resetWatchDesc;
+  document.getElementById('btn-reset-view').textContent = t.btnResetView;
+  document.getElementById('btn-reset-watch').textContent = t.btnResetWatch;
+  if (currentMemeSkip !== undefined) renderMemeSkip(currentMemeSkip);
+}
+
+async function init() {
+  const res = await fetch('/api/me');
+  const me = await res.json();
+  currentUsername = me.username;
+  document.getElementById('avatar-initial').textContent = me.username[0].toUpperCase();
+  applyLang(me.lang || 'en');
+  loadAvatar();
+}
+
+function loadAvatar() {
+  const url = `/api/profile/avatar/${encodeURIComponent(currentUsername)}?t=${Date.now()}`;
+  const probe = new Image();
+  probe.onload = () => setAvatarImg(url);
+  probe.onerror = () => {};
+  probe.src = url;
+}
+
+function setAvatarImg(src) {
+  const wrap = document.getElementById('avatar-wrap');
+  const existing = wrap.querySelector('img');
+  if (existing) existing.remove();
+  document.getElementById('avatar-initial').style.display = 'none';
+  const img = document.createElement('img');
+  img.src = src;
+  wrap.insertBefore(img, wrap.firstChild);
+}
+
+document.getElementById('avatar-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  pendingFile = file;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const wrap = document.getElementById('avatar-wrap');
+    const existing = wrap.querySelector('img');
+    if (existing) existing.remove();
+    document.getElementById('avatar-initial').style.display = 'none';
+    const img = document.createElement('img');
+    img.src = ev.target.result;
+    wrap.insertBefore(img, wrap.firstChild);
+    document.getElementById('btn-save-avatar').style.display = '';
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
+
+async function saveAvatar() {
+  if (!pendingFile) return;
+  const btn = document.getElementById('btn-save-avatar');
+  btn.disabled = true;
+  btn.textContent = (T[currentLang] || T.en).saving;
+
+  const form = new FormData();
+  form.append('avatar', pendingFile);
+  const res = await fetch('/api/profile/avatar', { method: 'POST', body: form });
+  const body = await res.json();
+
+  const t = T[currentLang] || T.en;
+  btn.disabled = false;
+  btn.textContent = t.savePicture;
+
+  if (res.ok) {
+    pendingFile = null;
+    btn.style.display = 'none';
+    toast(t.toastPicUpdated, 'success');
+  } else {
+    toast(body.error || t.errUploadFailed, 'error');
+  }
+}
+
+async function changePassword() {
+  const t = T[currentLang] || T.en;
+  const current = document.getElementById('pw-current').value;
+  const newPw   = document.getElementById('pw-new').value;
+  const confirm = document.getElementById('pw-confirm').value;
+
+  if (!current || !newPw || !confirm) { toast(t.errFieldsRequired, 'error'); return; }
+  if (newPw !== confirm) { toast(t.errPwNoMatch, 'error'); return; }
+  if (newPw.length < 6) { toast(t.errPwTooShort, 'error'); return; }
+
+  const res = await fetch('/api/profile/password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current, new: newPw }),
+  });
+  const body = await res.json();
+
+  if (res.ok) {
+    document.getElementById('pw-current').value = '';
+    document.getElementById('pw-new').value = '';
+    document.getElementById('pw-confirm').value = '';
+    toast(t.toastPwUpdated, 'success');
+  } else {
+    toast(body.error || t.errPwFailed, 'error');
+  }
+}
+
+let toastTimer;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+init();
+loadMemeSkip();
+
+async function loadMemeSkip() {
+  document.getElementById('meme-status').textContent = (T[currentLang] || T.en).memeLoading;
+  const res = await fetch('/api/profile/meme-skip');
+  const { meme_skip } = await res.json();
+  currentMemeSkip = meme_skip;
+  renderMemeSkip(meme_skip);
+}
+
+function renderMemeSkip(skip) {
+  const t = T[currentLang] || T.en;
+  const el = document.getElementById('meme-status');
+  const btns = {
+    show:   document.getElementById('meme-btn-show'),
+    now:    document.getElementById('meme-btn-now'),
+    today:  document.getElementById('meme-btn-today'),
+    week:   document.getElementById('meme-btn-week'),
+    always: document.getElementById('meme-btn-always'),
+  };
+  Object.values(btns).forEach(b => b.classList.remove('active'));
+
+  const skipNow = sessionStorage.getItem('meme_skip_now') === '1';
+
+  if (!skip) {
+    if (skipNow) {
+      el.textContent = t.memeStatusSession;
+      btns.now.classList.add('active');
+    } else {
+      el.textContent = t.memeStatusShown;
+      btns.show.classList.add('active');
+    }
+  } else if (skip === 'always') {
+    el.textContent = t.memeStatusAlways;
+    btns.always.classList.add('active');
+  } else if (skip.until) {
+    el.textContent = t.memeStatusUntil(skip.until);
+    const today = new Date().toISOString().slice(0, 10);
+    const weekEnd = (() => {
+      const d = new Date(); d.setDate(d.getDate() + (6 - d.getDay())); return d.toISOString().slice(0, 10);
+    })();
+    if (skip.until === today) btns.today.classList.add('active');
+    else if (skip.until === weekEnd) btns.week.classList.add('active');
+  }
+}
+
+function toggleSkipNow() {
+  const active = sessionStorage.getItem('meme_skip_now') === '1';
+  if (active) {
+    sessionStorage.removeItem('meme_skip_now');
+  } else {
+    sessionStorage.setItem('meme_skip_now', '1');
+  }
+  loadMemeSkip();
+  toast((T[currentLang] || T.en).toastMemeSaved, 'success');
+}
+
+async function setMemeSkip(preset) {
+  const t = T[currentLang] || T.en;
+  const res = await fetch('/api/profile/meme-skip', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ preset }),
+  });
+  if (res.ok) {
+    const { meme_skip } = await (await fetch('/api/profile/meme-skip')).json();
+    currentMemeSkip = meme_skip;
+    renderMemeSkip(meme_skip);
+    toast(t.toastMemeSaved, 'success');
+  } else {
+    toast(t.errPrefFailed, 'error');
+  }
+}
+
+function resetView() {
+  localStorage.removeItem('sidebar-width');
+  localStorage.removeItem('collapse-states');
+  toast((T[currentLang] || T.en).toastViewReset, 'success');
+}
+
+async function resetWatchRecords() {
+  const t = T[currentLang] || T.en;
+  if (!confirm(t.resetWatchConfirm)) return;
+  const btn = document.getElementById('btn-reset-watch');
+  btn.disabled = true;
+  const res = await fetch('/api/watch', { method: 'DELETE' });
+  btn.disabled = false;
+  if (res.ok) {
+    toast(t.toastWatchReset, 'success');
+  } else {
+    toast(t.errWatchResetFailed, 'error');
+  }
+}
+
+async function saveLang(lang) {
+  const t = T[lang] || T.en;
+  const res = await fetch('/api/profile/lang', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lang }),
+  });
+  if (res.ok) {
+    applyLang(lang);
+    toast(t.toastLangSaved, 'success');
+  } else {
+    toast((T[currentLang] || T.en).errLangFailed, 'error');
+  }
+}
+</script>
+</body>
+</html>

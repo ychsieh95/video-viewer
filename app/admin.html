@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Video Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .container { width: 100%; max-width: 520px; }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .page-header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+  .page-header a {
+    font-size: 12px;
+    color: #555;
+    text-decoration: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    padding: 4px 10px;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .page-header a:hover { color: #fff; border-color: #555; }
+
+  section {
+    background: #141414;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  section h2 { font-size: 13px; font-weight: 700; color: #aaa; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 16px; }
+
+  /* User list */
+  #user-list { display: flex; flex-direction: column; gap: 8px; }
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #1a1a1a;
+    border-radius: 7px;
+    border: 1px solid #222;
+  }
+  .user-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .user-name { font-size: 14px; color: #e0e0e0; display: flex; align-items: center; gap: 6px; }
+  .user-last-login { font-size: 11px; color: #555; }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-dot.online  { background: #3cb371; box-shadow: 0 0 5px #3cb37188; }
+  .status-dot.offline { background: #333; }
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .badge-admin { background: #2a1a0a; color: #e6a817; border: 1px solid #5c3a0a; }
+  .badge-user  { background: #1a1a2a; color: #6b8fe6; border: 1px solid #1a2a5c; }
+  .btn-delete {
+    background: none;
+    border: 1px solid #3a1a1a;
+    border-radius: 5px;
+    color: #883333;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .btn-delete:hover { background: #2a0a0d; color: #ff6b6b; border-color: #5c1a1a; }
+
+  /* Ban list */
+  #ban-list { display: flex; flex-direction: column; gap: 8px; }
+  .ban-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #1a0a0d;
+    border-radius: 7px;
+    border: 1px solid #3a1a1a;
+  }
+  .ban-ip { flex: 1; font-size: 13px; color: #e0e0e0; font-family: monospace; }
+  .ban-until { font-size: 11px; color: #883333; white-space: nowrap; }
+  .ban-form { display: flex; gap: 8px; margin-top: 12px; }
+  .ban-form input { flex: 1; }
+  .btn-ban {
+    background: #3a1a1a;
+    border: 1px solid #5c1a1a;
+    border-radius: 6px;
+    color: #e06060;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s;
+  }
+  .btn-ban:hover { background: #5c1a1a; color: #ff9090; }
+  .btn-delete:disabled { opacity: 0.3; cursor: default; }
+  .empty { font-size: 13px; color: #444; padding: 8px 0; }
+
+  /* Add form */
+  .form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .form-row input { flex: 1; }
+  label { display: block; font-size: 11px; color: #666; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 8px 11px;
+    color: #e0e0e0;
+    font-size: 13px;
+    outline: none;
+  }
+  input:focus { border-color: #e63946; }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .checkbox-row input[type="checkbox"] { accent-color: #e63946; width: 15px; height: 15px; }
+  .checkbox-row label { margin: 0; font-size: 13px; color: #aaa; text-transform: none; letter-spacing: 0; }
+
+  .btn-add {
+    background: #e63946;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 20px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .btn-add:hover { background: #c1121f; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 13px;
+    color: #e0e0e0;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { border-color: #5c1a1a; color: #ff6b6b; background: #1a0a0d; }
+
+  /* Meme list */
+  #meme-list { display: flex; flex-direction: column; gap: 8px; }
+  .meme-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #1a1a2a;
+    border-radius: 7px;
+    border: 1px solid #1e1e3a;
+  }
+  .meme-info { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+  .meme-title { font-size: 13px; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meme-id { font-size: 11px; color: #555; font-family: monospace; }
+  .meme-link { font-size: 11px; color: #4a6eb5; text-decoration: none; white-space: nowrap; }
+  .meme-link:hover { color: #6b8fe6; }
+
+  /* Permissions button */
+  .btn-perms {
+    background: none;
+    border: 1px solid #1a2a5c;
+    border-radius: 5px;
+    color: #4a6eb5;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .btn-perms:hover { background: #0a1a3a; color: #6b8fe6; border-color: #2a4a8a; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal-box {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 460px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #1e1e1e;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .modal-close {
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #555;
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .modal-close:hover { color: #e63946; border-color: #e63946; }
+  .modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid #1e1e1e;
+    flex-shrink: 0;
+  }
+  .btn-cancel {
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    color: #888;
+    font-size: 13px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .btn-cancel:hover { color: #fff; border-color: #555; }
+
+  /* Permission tree */
+  .tree-divider { border: none; border-top: 1px solid #1e1e1e; margin: 8px 0 14px; }
+  .tree-show { margin-bottom: 6px; border: 1px solid #222; border-radius: 7px; overflow: hidden; }
+  .tree-show-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #1a1a1a;
+  }
+  .tree-show-label { flex: 1; font-size: 13px; font-weight: 600; color: #ccc; }
+  .tree-toggle {
+    font-size: 9px;
+    color: #555;
+    cursor: pointer;
+    padding: 2px 5px;
+    transition: transform 0.15s;
+    user-select: none;
+  }
+  .tree-show-body {
+    padding: 6px 12px 10px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #161616;
+  }
+  .tree-show-body.hidden { display: none; }
+  .tree-file-row, .tree-subfolder-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+  }
+  .tree-file-label { font-size: 12px; color: #999; }
+  .tree-subfolder-label { font-size: 12px; font-weight: 600; color: #bbb; }
+  .tree-subfolder-files {
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 2px;
+  }
+  .tree-empty { font-size: 12px; color: #444; padding: 4px 0; }
+  #perm-tree input[type="checkbox"] { accent-color: #e63946; cursor: pointer; flex-shrink: 0; }
+  #perm-tree input[type="checkbox"]:disabled { opacity: 0.45; cursor: default; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header">
+    <h1>Account Management</h1>
+    <a href="/">&#8592; Back to viewer</a>
+  </div>
+
+  <section>
+    <h2>Accounts</h2>
+    <div id="user-list"><div class="empty">Loading…</div></div>
+  </section>
+
+  <section>
+    <h2>Banned IPs</h2>
+    <div id="ban-list"><div class="empty">Loading…</div></div>
+    <div class="ban-form">
+      <input type="text" id="new-ban-ip" placeholder="IP address" autocomplete="off">
+      <button class="btn-ban" onclick="banIp()">Ban IP</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Meme Videos</h2>
+    <div id="meme-list"><div class="empty">Loading…</div></div>
+    <div class="ban-form" style="margin-top:12px">
+      <input type="text" id="new-meme-url" placeholder="YouTube URL or video ID" autocomplete="off">
+      <button class="btn-ban" style="background:#1a2a3a;border-color:#1a3a5c;color:#6b8fe6" onclick="addMeme()">Add</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Add Account</h2>
+    <div class="form-row">
+      <div style="flex:1">
+        <label>Username</label>
+        <input type="text" id="new-username" autocomplete="off">
+      </div>
+      <div style="flex:1">
+        <label>Password</label>
+        <input type="password" id="new-password" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="new-admin">
+      <label for="new-admin">Admin privileges</label>
+    </div>
+    <button class="btn-add" onclick="addUser()">Add Account</button>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="perm-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closePermModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="perm-modal-title">Permissions</span>
+      <button class="modal-close" onclick="closePermModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="checkbox-row">
+        <input type="checkbox" id="perm-unrestricted" onchange="onUnrestrictedChange()">
+        <label for="perm-unrestricted">Full access (unrestricted)</label>
+      </div>
+      <div id="perm-tree"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closePermModal()">Cancel</button>
+      <button class="btn-add" onclick="savePermissions()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentUser = null;
+
+async function loadUsers() {
+  const res = await fetch('/admin/api/users');
+  if (!res.ok) return;
+  const users = await res.json();
+
+  // identify logged-in user from the page (passed via meta or infer)
+  const list = document.getElementById('user-list');
+  if (!users.length) {
+    list.innerHTML = '<div class="empty">No accounts found.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  users.forEach(u => {
+    const row = document.createElement('div');
+    row.className = 'user-row';
+    row.dataset.username = u.username;
+    const loginInfo = u.last_login_at
+      ? `${fmtDate(u.last_login_at)} · ${esc(u.last_login_ip || '?')}`
+      : 'Never logged in';
+    const permsBtn = u.admin ? '' : `<button class="btn-perms" onclick="openPermModal('${esc(u.username)}')">Perms</button>`;
+    const dot = `<span class="status-dot ${u.online ? 'online' : 'offline'}" title="${u.online ? 'Online' : 'Offline'}"></span>`;
+    row.innerHTML = `
+      <div class="user-info">
+        <span class="user-name">${dot}${esc(u.username)}</span>
+        <span class="user-last-login">${loginInfo}</span>
+      </div>
+      <span class="badge ${u.admin ? 'badge-admin' : 'badge-user'}">${u.admin ? 'Admin' : 'User'}</span>
+      ${permsBtn}
+      <button class="btn-delete" onclick="deleteUser('${esc(u.username)}', this)">Delete</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+async function deleteUser(username, btn) {
+  if (!confirm(`Delete account "${username}"?`)) return;
+  btn.disabled = true;
+  const res = await fetch(`/admin/api/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
+  const body = await res.json();
+  if (res.ok) {
+    btn.closest('.user-row').remove();
+    toast('Account deleted.');
+  } else {
+    btn.disabled = false;
+    toast(body.error || 'Failed to delete.', true);
+  }
+}
+
+async function addUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const is_admin = document.getElementById('new-admin').checked;
+
+  if (!username || !password) { toast('Username and password required.', true); return; }
+
+  const res = await fetch('/admin/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, admin: is_admin }),
+  });
+  const body = await res.json();
+  if (res.ok) {
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('new-admin').checked = false;
+    toast('Account created.');
+    loadUsers();
+  } else {
+    toast(body.error || 'Failed to create.', true);
+  }
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+let toastTimer;
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+async function loadBans() {
+  const res = await fetch('/admin/api/bans');
+  if (!res.ok) return;
+  const bans = await res.json();
+  const list = document.getElementById('ban-list');
+  if (!bans.length) {
+    list.innerHTML = '<div class="empty">No active bans.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  bans.forEach(b => {
+    const row = document.createElement('div');
+    row.className = 'ban-row';
+    row.innerHTML = `
+      <span class="ban-ip">${esc(b.ip)}</span>
+      <span class="ban-until">until ${fmtDate(b.until)}</span>
+      <button class="btn-delete" onclick="unbanIp('${esc(b.ip)}', this)">Unban</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+async function unbanIp(ip, btn) {
+  btn.disabled = true;
+  const res = await fetch('/admin/api/bans/' + encodeURIComponent(ip), { method: 'DELETE' });
+  if (res.ok) {
+    const row = btn.closest('.ban-row');
+    row.remove();
+    if (!document.querySelector('#ban-list .ban-row')) {
+      document.getElementById('ban-list').innerHTML = '<div class="empty">No active bans.</div>';
+    }
+    toast('IP unbanned.');
+  } else {
+    btn.disabled = false;
+    toast('Failed to unban.', true);
+  }
+}
+
+async function banIp() {
+  const ip = document.getElementById('new-ban-ip').value.trim();
+  if (!ip) { toast('IP address required.', true); return; }
+  const res = await fetch('/admin/api/bans', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip }),
+  });
+  const body = await res.json();
+  if (res.ok) {
+    document.getElementById('new-ban-ip').value = '';
+    toast('IP banned.');
+    loadBans();
+  } else {
+    toast(body.error || 'Failed to ban.', true);
+  }
+}
+
+// ── Permissions modal ─────────────────────────────────────────────────────────
+
+let permUsername = null;
+let cachedLibrary = null;
+
+async function openPermModal(username) {
+  permUsername = username;
+  document.getElementById('perm-modal-title').textContent = `Permissions — ${username}`;
+  document.getElementById('perm-tree').innerHTML = '<div class="tree-empty">Loading…</div>';
+  document.getElementById('perm-modal').style.display = 'flex';
+
+  const [libData, permData] = await Promise.all([
+    cachedLibrary
+      ? Promise.resolve(cachedLibrary)
+      : fetch('/admin/api/library').then(r => r.json()),
+    fetch(`/admin/api/users/${encodeURIComponent(username)}/permissions`).then(r => r.json()),
+  ]);
+  if (!cachedLibrary) cachedLibrary = libData;
+
+  renderPermTree(libData, permData.allowed_paths);
+}
+
+function closePermModal() {
+  document.getElementById('perm-modal').style.display = 'none';
+  permUsername = null;
+}
+
+function onUnrestrictedChange() {
+  const unrestricted = document.getElementById('perm-unrestricted').checked;
+  const tree = document.getElementById('perm-tree');
+  tree.style.opacity = unrestricted ? '0.35' : '1';
+  tree.style.pointerEvents = unrestricted ? 'none' : '';
+}
+
+function setChildrenDisabled(container, disabled) {
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.disabled = disabled;
+    cb.checked = disabled ? true : false;
+  });
+}
+
+function renderPermTree(lib, allowedPaths) {
+  const unrestricted = allowedPaths === null;
+  document.getElementById('perm-unrestricted').checked = unrestricted;
+  const tree = document.getElementById('perm-tree');
+  tree.style.opacity = unrestricted ? '0.35' : '1';
+  tree.style.pointerEvents = unrestricted ? 'none' : '';
+  tree.innerHTML = '';
+
+  if (!lib.length) {
+    tree.innerHTML = '<div class="tree-empty">No videos found in library.</div>';
+    return;
+  }
+
+  const allowed = allowedPaths || [];
+  function isAllowed(path) {
+    return allowed.some(rule => path === rule || path.startsWith(rule + '/'));
+  }
+
+  const hr = document.createElement('hr');
+  hr.className = 'tree-divider';
+  tree.appendChild(hr);
+
+  lib.forEach(show => {
+    const showChecked = isAllowed(show.path);
+
+    const showDiv = document.createElement('div');
+    showDiv.className = 'tree-show';
+
+    const header = document.createElement('div');
+    header.className = 'tree-show-header';
+
+    const showCb = document.createElement('input');
+    showCb.type = 'checkbox';
+    showCb.dataset.path = show.path;
+    showCb.checked = showChecked;
+
+    const showLabel = document.createElement('span');
+    showLabel.className = 'tree-show-label';
+    showLabel.textContent = show.name;
+
+    const toggle = document.createElement('span');
+    toggle.className = 'tree-toggle';
+    toggle.textContent = '▼';
+
+    header.appendChild(showCb);
+    header.appendChild(showLabel);
+    header.appendChild(toggle);
+
+    const body = document.createElement('div');
+    body.className = 'tree-show-body';
+
+    toggle.addEventListener('click', () => {
+      body.classList.toggle('hidden');
+      toggle.style.transform = body.classList.contains('hidden') ? 'rotate(-90deg)' : '';
+    });
+
+    showCb.addEventListener('change', () => setChildrenDisabled(body, showCb.checked));
+
+    show.children.forEach(child => {
+      if (child.type === 'file') {
+        const row = document.createElement('div');
+        row.className = 'tree-file-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.path = child.path;
+        cb.checked = showChecked || isAllowed(child.path);
+        cb.disabled = showChecked;
+        const lbl = document.createElement('span');
+        lbl.className = 'tree-file-label';
+        lbl.textContent = child.name;
+        row.appendChild(cb);
+        row.appendChild(lbl);
+        body.appendChild(row);
+      } else {
+        // sub-folder / section
+        const folderChecked = showChecked || isAllowed(child.path);
+        const secHeader = document.createElement('div');
+        secHeader.className = 'tree-subfolder-header';
+        const secCb = document.createElement('input');
+        secCb.type = 'checkbox';
+        secCb.dataset.path = child.path;
+        secCb.checked = folderChecked;
+        secCb.disabled = showChecked;
+        const secLbl = document.createElement('span');
+        secLbl.className = 'tree-subfolder-label';
+        secLbl.textContent = child.name;
+        secHeader.appendChild(secCb);
+        secHeader.appendChild(secLbl);
+
+        const secFiles = document.createElement('div');
+        secFiles.className = 'tree-subfolder-files';
+
+        secCb.addEventListener('change', () => setChildrenDisabled(secFiles, secCb.checked));
+
+        child.children.forEach(file => {
+          const row = document.createElement('div');
+          row.className = 'tree-file-row';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.dataset.path = file.path;
+          cb.checked = folderChecked || isAllowed(file.path);
+          cb.disabled = folderChecked;
+          const lbl = document.createElement('span');
+          lbl.className = 'tree-file-label';
+          lbl.textContent = file.name;
+          row.appendChild(cb);
+          row.appendChild(lbl);
+          secFiles.appendChild(row);
+        });
+
+        body.appendChild(secHeader);
+        body.appendChild(secFiles);
+      }
+    });
+
+    showDiv.appendChild(header);
+    showDiv.appendChild(body);
+    tree.appendChild(showDiv);
+  });
+}
+
+async function savePermissions() {
+  if (!permUsername) return;
+  const unrestricted = document.getElementById('perm-unrestricted').checked;
+  let allowedPaths = null;
+  if (!unrestricted) {
+    allowedPaths = [];
+    document.querySelectorAll('#perm-tree input[type="checkbox"]').forEach(cb => {
+      if (cb.checked && !cb.disabled) allowedPaths.push(cb.dataset.path);
+    });
+  }
+  const res = await fetch(`/admin/api/users/${encodeURIComponent(permUsername)}/permissions`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ allowed_paths: allowedPaths }),
+  });
+  const body = await res.json();
+  if (res.ok) { closePermModal(); toast('Permissions saved.'); }
+  else toast(body.error || 'Failed to save.', true);
+}
+
+// ── Meme management ───────────────────────────────────────────────────────────
+
+async function fetchYtTitle(id) {
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.title || null;
+  } catch { return null; }
+}
+
+async function loadMemes() {
+  const res = await fetch('/admin/api/memes');
+  if (!res.ok) return;
+  const memes = await res.json();
+  const list = document.getElementById('meme-list');
+  if (!memes.length) {
+    list.innerHTML = '<div class="empty">No meme videos configured.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  const titles = await Promise.all(memes.map(id => fetchYtTitle(id)));
+  memes.forEach((id, idx) => {
+    const title = titles[idx] || id;
+    const row = document.createElement('div');
+    row.className = 'meme-row';
+    row.innerHTML = `
+      <div class="meme-info">
+        <span class="meme-title">${esc(title)}</span>
+        <span class="meme-id">${esc(id)}</span>
+      </div>
+      <a class="meme-link" href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener">YouTube ↗</a>
+      <button class="btn-delete" onclick="deleteMeme(${idx}, this)">Delete</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+async function deleteMeme(index, btn) {
+  btn.disabled = true;
+  const res = await fetch(`/admin/api/memes/${index}`, { method: 'DELETE' });
+  if (res.ok) {
+    toast('Meme removed.');
+    loadMemes();
+  } else {
+    btn.disabled = false;
+    const body = await res.json();
+    toast(body.error || 'Failed to delete.', true);
+  }
+}
+
+async function addMeme() {
+  const url = document.getElementById('new-meme-url').value.trim();
+  if (!url) { toast('URL or video ID required.', true); return; }
+  const res = await fetch('/admin/api/memes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  const body = await res.json();
+  if (res.ok) {
+    document.getElementById('new-meme-url').value = '';
+    toast('Meme added.');
+    loadMemes();
+  } else {
+    toast(body.error || 'Failed to add.', true);
+  }
+}
+
+function heartbeat() {
+  fetch('/api/heartbeat', { method: 'POST' });
+}
+
+loadUsers();
+loadBans();
+loadMemes();
+heartbeat();
+setInterval(heartbeat, 30000);
+setInterval(loadUsers, 30000);
+</script>
+</body>
+</html>

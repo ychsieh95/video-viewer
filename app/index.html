@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 280px;
+    min-width: 160px;
+    background: #141414;
+    border-right: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #sidebar-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: col-resize;
+    z-index: 10;
+    transition: background 0.15s;
+  }
+  #sidebar-resizer:hover { background: #333; }
+  #sidebar-resizer.dragging { background: #e63946; }
+
+  #sidebar-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
+  }
+
+  #sidebar-header .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  #sidebar-header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.3px;
+  }
+
+  #sidebar-header p {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+  }
+
+  #btn-admin {
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #555;
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  #btn-admin:hover { color: #e6a817; border-color: #e6a817; }
+
+  #avatar-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    min-width: 130px;
+    z-index: 200;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    display: none;
+  }
+  #avatar-menu.open { display: block; }
+  #avatar-menu a {
+    display: block;
+    padding: 9px 14px;
+    font-size: 12px;
+    color: #bbb;
+    text-decoration: none;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+  }
+  #avatar-menu a:hover { background: #252525; color: #fff; }
+  #avatar-menu .menu-divider { height: 1px; background: #222; margin: 2px 0; }
+  #avatar-menu a.danger { color: #883333; }
+  #avatar-menu a.danger:hover { background: #2a0a0d; color: #ff6b6b; }
+
+  #btn-changelog {
+    background: none;
+    border: none;
+    color: #3a3a3a;
+    font-size: 11px;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.1s;
+    flex-shrink: 0;
+  }
+  #btn-changelog:hover { color: #3cb371; }
+
+  #user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #555;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.15s;
+  }
+  #user-avatar:hover { border-color: #6b8fe6; }
+  #user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  #search {
+    margin-top: 10px;
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: #e0e0e0;
+    font-size: 13px;
+    outline: none;
+  }
+  #search:focus { border-color: #e63946; }
+  #search::placeholder { color: #555; }
+
+  #btn-collapse-all {
+    display: none;
+    margin-top: 6px;
+    width: 100%;
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #555;
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  #btn-collapse-all:hover { color: #ccc; border-color: #555; }
+
+  #episode-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 0;
+  }
+
+  #episode-list::-webkit-scrollbar { width: 4px; }
+  #episode-list::-webkit-scrollbar-track { background: #141414; }
+  #episode-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+
+  .show-header {
+    padding: 10px 12px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ccc;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid #1e1e1e;
+    transition: color 0.1s;
+  }
+  .show-header:hover { color: #fff; }
+  .show-header .arrow {
+    font-size: 9px;
+    color: #555;
+    transition: transform 0.15s;
+  }
+  .show-header.collapsed .arrow { transform: rotate(-90deg); }
+
+  .show-body.hidden { display: none; }
+
+  .section-label {
+    padding: 8px 14px 3px 20px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #e63946;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+  }
+
+  .ep-item {
+    padding: 6px 14px 6px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #b0b0b0;
+    border-left: 3px solid transparent;
+    transition: background 0.1s, color 0.1s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ep-item:hover { background: #1e1e1e; color: #fff; }
+
+  .ep-item.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-left-color: #e63946;
+  }
+
+  .ep-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: #e63946;
+    pointer-events: none;
+    transition: width 0.5s linear;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 12px;
+    color: #ccc;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  .ep-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: #444;
+    min-width: 28px;
+  }
+  .ep-item.active .ep-num,
+  .ep-item:hover .ep-num { color: #e63946; }
+
+  .ep-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .ep-time {
+    font-size: 10px;
+    color: #444;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+  .ep-item:hover .ep-time,
+  .ep-item.active .ep-time { color: #888; }
+
+  /* ── Main ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #0d0d0d;
+  }
+
+  #player-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    overflow: hidden;
+  }
+
+  #player {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    outline: none;
+    background: #000;
+  }
+
+  /* bigger subtitles */
+  #player::cue {
+    font-size: 1.3em;
+    background: rgba(0,0,0,0.75);
+  }
+
+  #skip-bar {
+    padding: 6px 20px;
+    background: #0f0f0f;
+    border-top: 1px solid #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .skip-group {
+    display: flex;
+    gap: 3px;
+  }
+
+  .skip-divider {
+    width: 1px;
+    background: #2a2a2a;
+    margin: 0 6px;
+    align-self: stretch;
+  }
+
+  .skip-btn {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #999;
+    padding: 4px 9px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .skip-btn:hover { background: #252525; color: #fff; }
+  .skip-btn.back::before { content: '↩ '; }
+  .skip-btn.fwd::after  { content: ' ↪'; }
+
+  .speed-btn {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #999;
+    padding: 4px 9px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .speed-btn:hover { background: #252525; color: #fff; }
+  .speed-btn.active { background: #2a0a0d; color: #e63946; border-color: #5c1a1a; }
+
+  .nav-btn {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #999;
+    padding: 4px 9px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .nav-btn:hover:not(:disabled) { background: #252525; color: #fff; }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  #info-bar {
+    padding: 6px 20px;
+    background: #111;
+    border-top: 1px solid #1e1e1e;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  #now-playing {
+    flex: 1;
+    font-size: 13px;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #now-playing strong { color: #fff; }
+
+  /* empty state */
+  #empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #444;
+    font-size: 14px;
+    height: 100%;
+  }
+  #empty svg { opacity: 0.3; }
+
+  /* ── Mobile drawer ── */
+  #sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 40;
+  }
+  #sidebar-backdrop.show { display: block; }
+
+  #btn-drawer-close {
+    display: none;
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #555;
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  #btn-drawer-close:hover { color: #e63946; border-color: #e63946; }
+
+  #btn-episodes {
+    display: none;
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #999;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    touch-action: manipulation;
+    transition: background 0.1s, color 0.1s;
+  }
+  #btn-episodes:hover { background: #252525; color: #fff; }
+
+  @media (max-width: 640px) {
+    body { flex-direction: column; height: 100dvh; }
+
+    #sidebar-header .header-row > div:first-child { min-width: 0; }
+    #lib-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    #sidebar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      width: 100%; min-width: 0;
+      height: 72vh;
+      border-right: none;
+      border-top: 1px solid #2a2a2a;
+      border-radius: 16px 16px 0 0;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 50;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    #sidebar.open { transform: translateY(0); }
+
+    #sidebar-header { padding-top: 10px; }
+    #sidebar-header::before {
+      content: '';
+      display: block;
+      width: 36px; height: 4px;
+      background: #333;
+      border-radius: 2px;
+      margin: 0 auto 12px;
+    }
+
+    #btn-drawer-close { display: inline; }
+    #btn-episodes { display: inline; }
+
+    #btn-admin { font-size: 10px; padding: 3px 6px; }
+
+    #main { flex: 1; min-height: 0; }
+
+    #skip-bar {
+      overflow-x: auto;
+      justify-content: flex-start;
+      padding: 5px 10px;
+      gap: 4px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    #skip-bar::-webkit-scrollbar { display: none; }
+
+    .skip-btn, .speed-btn, .nav-btn {
+      padding: 7px 11px;
+      font-size: 12px;
+      touch-action: manipulation;
+    }
+
+    .ep-item { padding: 10px 14px 10px 20px; }
+
+    #info-bar { padding: 6px 10px; }
+    #now-playing { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="sidebar-backdrop" onclick="closeDrawer()"></div>
+
+<div id="sidebar">
+  <div id="sidebar-resizer"></div>
+  <div id="sidebar-header">
+    <div class="header-row">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+        <div style="position:relative;flex-shrink:0">
+          <div id="user-avatar" onclick="toggleAvatarMenu(event)" title="Account"></div>
+          <div id="avatar-menu">
+            <a href="/profile" id="menu-item-profile">Profile</a>
+            <div class="menu-divider"></div>
+            <a href="/logout" class="danger" id="menu-item-logout">Sign out</a>
+          </div>
+        </div>
+        <h1 id="lib-title" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Video Library</h1>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button id="btn-admin" onclick="location.href='/admin'" style="display:none">Admin</button>
+        <button id="btn-drawer-close" onclick="closeDrawer()">✕</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+      <p id="lib-sub"></p>
+      <button id="btn-changelog" onclick="location.href='/changelog'">Changelog</button>
+    </div>
+    <input id="search" type="text" placeholder="Search episodes…">
+    <button id="btn-collapse-all" onclick="toggleCollapseAll()">Collapse All</button>
+  </div>
+  <div id="episode-list"></div>
+</div>
+
+<div id="main">
+  <div id="player-wrap">
+    <div id="empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      <span id="empty-text">Select an episode to begin</span>
+    </div>
+    <video id="player" controls style="display:none"></video>
+  </div>
+  <div id="skip-bar">
+    <button class="nav-btn" id="btn-prev" disabled>&#8592; Prev</button>
+    <div class="skip-divider"></div>
+    <div class="skip-group">
+      <button class="skip-btn back" data-sec="-600">10m</button>
+      <button class="skip-btn back" data-sec="-60">1m</button>
+      <button class="skip-btn back" data-sec="-10">10s</button>
+      <button class="skip-btn back" data-sec="-5">5s</button>
+    </div>
+    <div class="skip-divider"></div>
+    <div class="skip-group">
+      <button class="skip-btn fwd" data-sec="5">5s</button>
+      <button class="skip-btn fwd" data-sec="10">10s</button>
+      <button class="skip-btn fwd" data-sec="60">1m</button>
+      <button class="skip-btn fwd" data-sec="600">10m</button>
+    </div>
+    <div class="skip-divider"></div>
+    <div class="skip-group" id="speed-group">
+      <button class="speed-btn active" data-rate="1">1x</button>
+      <button class="speed-btn" data-rate="1.25">1.25x</button>
+      <button class="speed-btn" data-rate="1.5">1.5x</button>
+      <button class="speed-btn" data-rate="2">2x</button>
+    </div>
+    <div class="skip-divider"></div>
+    <button class="nav-btn" id="btn-next" disabled>Next &#8594;</button>
+  </div>
+  <div id="info-bar">
+    <div id="now-playing">No episode selected</div>
+    <button id="btn-episodes" onclick="openDrawer()">Episodes ☰</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let episodes = [];
+let currentIdx = -1;
+let currentSpeed = 1;
+let currentLang = 'en';
+
+const T = {
+  en: {
+    libTitle: 'Video Library',
+    libSub: (s, e) => `${s} shows · ${e} episodes`,
+    libSubSingle: e => `${e} episodes`,
+    search: 'Search episodes…',
+    collapseAll: 'Collapse All',
+    expandAll: 'Expand All',
+    empty: 'Select an episode to begin',
+    prev: '← Prev',
+    next: 'Next →',
+    noEpisode: 'No episode selected',
+    episodes: 'Episodes ☰',
+    signOut: 'Sign out',
+    profile: 'Profile',
+    changelog: 'Changelog',
+    menuProfile: 'Profile',
+    menuSignOut: 'Sign out',
+    admin: 'Admin',
+    resumedFrom: t => `Resumed from ${t}`,
+  },
+  'zh-TW': {
+    libTitle: '影片庫',
+    libSub: (s, e) => `${s} 部影集 · ${e} 集`,
+    libSubSingle: e => `${e} 集`,
+    search: '搜尋集數…',
+    collapseAll: '全部收起',
+    expandAll: '全部展開',
+    empty: '選擇一集開始播放',
+    prev: '← 上一集',
+    next: '下一集 →',
+    noEpisode: '尚未選擇集數',
+    episodes: '集數 ☰',
+    signOut: '登出',
+    profile: '個人資料',
+    changelog: '更新日誌',
+    menuProfile: '個人資料',
+    menuSignOut: '登出',
+    admin: '管理',
+    resumedFrom: t => `從 ${t} 繼續播放`,
+  },
+};
+
+function applyLang(lang) {
+  currentLang = lang;
+  const t = T[lang] || T.en;
+  document.getElementById('search').placeholder = t.search;
+  document.getElementById('menu-item-profile').textContent = t.menuProfile;
+  document.getElementById('menu-item-logout').textContent = t.menuSignOut;
+  document.getElementById('btn-changelog').textContent = t.changelog;
+  document.getElementById('btn-admin').textContent = t.admin;
+  document.getElementById('btn-prev').textContent = t.prev;
+  document.getElementById('btn-next').textContent = t.next;
+  document.getElementById('btn-episodes').textContent = t.episodes;
+  document.getElementById('empty-text').textContent = t.empty;
+  if (currentIdx < 0) document.getElementById('now-playing').textContent = t.noEpisode;
+  const btnC = document.getElementById('btn-collapse-all');
+  if (btnC.style.display !== 'none') {
+    const anyExpanded = [...document.querySelectorAll('.show-header')].some(h => !h.classList.contains('collapsed'));
+    btnC.textContent = anyExpanded ? t.collapseAll : t.expandAll;
+  }
+}
+
+function toggleCollapseAll() {
+  const headers = document.querySelectorAll('.show-header');
+  const anyExpanded = [...headers].some(h => !h.classList.contains('collapsed'));
+  headers.forEach(h => {
+    const showName = h.querySelector('span:last-child').textContent;
+    const body = h.nextElementSibling;
+    if (anyExpanded) {
+      h.classList.add('collapsed');
+      body.classList.add('hidden');
+    } else {
+      h.classList.remove('collapsed');
+      body.classList.remove('hidden');
+    }
+    saveCollapseState(showName, anyExpanded);
+  });
+  const t = T[currentLang] || T.en;
+  document.getElementById('btn-collapse-all').textContent = anyExpanded ? t.expandAll : t.collapseAll;
+}
+
+function openDrawer() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-backdrop').classList.add('show');
+}
+
+function closeDrawer() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('show');
+}
+
+function videoUrl(path) {
+  return '/video/' + path.split('/').map(encodeURIComponent).join('/');
+}
+
+// ── Collapse state (localStorage) ────────────────────────────────────────────
+
+function getCollapseStates() {
+  try { return JSON.parse(localStorage.getItem('collapse-states')) || {}; } catch { return {}; }
+}
+
+function saveCollapseState(showName, collapsed) {
+  try {
+    const states = getCollapseStates();
+    states[showName] = collapsed;
+    localStorage.setItem('collapse-states', JSON.stringify(states));
+  } catch {}
+}
+
+// ── Watch records (server-side) ───────────────────────────────────────────────
+
+let _watchCache = {};
+let _lastWatchPath = null;
+
+async function loadWatchRecords() {
+  try {
+    const res = await fetch('/api/watch');
+    const data = await res.json();
+    _watchCache = data.records || {};
+    _lastWatchPath = data.last_watch || null;
+  } catch {}
+}
+
+function getRecord(path) {
+  return _watchCache[path] || null;
+}
+
+function setRecord(path, position, duration) {
+  if (!path || !duration) return;
+  _watchCache[path] = { position, duration };
+  fetch('/api/watch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, position, duration }),
+  }).catch(() => {});
+}
+
+function updateProgressBar(idx, position, duration) {
+  const item = document.querySelector(`.ep-item[data-idx="${idx}"]`);
+  if (!item) return;
+  let bar = item.querySelector('.ep-progress');
+  if (!bar) { bar = document.createElement('div'); bar.className = 'ep-progress'; item.appendChild(bar); }
+  bar.style.width = Math.min(100, (position / duration) * 100) + '%';
+  let timeEl = item.querySelector('.ep-time');
+  if (!timeEl) {
+    timeEl = document.createElement('span');
+    timeEl.className = 'ep-time';
+    item.insertBefore(timeEl, bar);
+  }
+  timeEl.textContent = `${fmtTime(position)} / ${fmtTime(duration)}`;
+}
+
+function fmtTime(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+  return h > 0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+async function loadEpisodes() {
+  const [res] = await Promise.all([fetch('/api/episodes'), loadWatchRecords()]);
+  episodes = await res.json();
+
+  // update header
+  const shows = [...new Set(episodes.map(e => e.show))];
+  const t = T[currentLang] || T.en;
+  if (shows.length === 1) {
+    document.getElementById('lib-title').textContent = shows[0];
+    document.getElementById('lib-sub').textContent = t.libSubSingle(episodes.length);
+    document.title = shows[0];
+  } else {
+    document.getElementById('lib-title').textContent = t.libTitle;
+    document.getElementById('lib-sub').textContent = t.libSub(shows.length, episodes.length);
+    document.title = t.libTitle;
+  }
+
+  renderList(episodes);
+
+  // auto-select the last watched episode
+  if (_lastWatchPath) {
+    const idx = episodes.findIndex(ep => ep.path === _lastWatchPath);
+    if (idx >= 0) {
+      const params = new URLSearchParams(window.location.search);
+      const noAutoplay = params.get('no_autoplay') === '1';
+      if (noAutoplay) {
+        params.delete('no_autoplay');
+        const qs = params.toString();
+        history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
+      }
+      playEpisode(idx, !noAutoplay);
+    }
+  }
+}
+
+function renderList(list) {
+  const container = document.getElementById('episode-list');
+  container.innerHTML = '';
+
+  // group: show → section → episodes
+  const showMap = new Map();
+  list.forEach(ep => {
+    if (!showMap.has(ep.show)) showMap.set(ep.show, new Map());
+    const secKey = ep.section ?? '\x00'; // null section → sentinel key
+    const secMap = showMap.get(ep.show);
+    if (!secMap.has(secKey)) secMap.set(secKey, []);
+    secMap.get(secKey).push(ep);
+  });
+
+  const multiShow = showMap.size > 1;
+  const btnCollapse = document.getElementById('btn-collapse-all');
+  btnCollapse.style.display = multiShow ? 'block' : 'none';
+
+  const collapseStates = getCollapseStates();
+
+  showMap.forEach((secMap, showName) => {
+    let showBody;
+
+    if (multiShow) {
+      const header = document.createElement('div');
+      header.className = 'show-header';
+      header.innerHTML = `<span class="arrow">▼</span><span>${showName}</span>`;
+      container.appendChild(header);
+
+      showBody = document.createElement('div');
+      showBody.className = 'show-body';
+      container.appendChild(showBody);
+
+      if (collapseStates[showName]) {
+        header.classList.add('collapsed');
+        showBody.classList.add('hidden');
+      }
+
+      header.addEventListener('click', () => {
+        header.classList.toggle('collapsed');
+        showBody.classList.toggle('hidden');
+        saveCollapseState(showName, header.classList.contains('collapsed'));
+        const t = T[currentLang] || T.en;
+        const anyExpanded = [...document.querySelectorAll('.show-header')].some(h => !h.classList.contains('collapsed'));
+        btnCollapse.textContent = anyExpanded ? t.collapseAll : t.expandAll;
+      });
+    } else {
+      showBody = container;
+    }
+
+    secMap.forEach((eps, secKey) => {
+      if (secKey !== '\x00') {
+        const label = document.createElement('div');
+        label.className = 'section-label';
+        label.textContent = secKey;
+        showBody.appendChild(label);
+      }
+
+      eps.forEach(ep => {
+        const origIdx = episodes.indexOf(ep);
+        const item = document.createElement('div');
+        item.className = 'ep-item' + (origIdx === currentIdx ? ' active' : '');
+        item.dataset.idx = origIdx;
+        const rec = getRecord(ep.path);
+        item.innerHTML = `
+          <span class="ep-num">${String(ep.ep).padStart(2, '0')}</span>
+          <span class="ep-title">${ep.title}</span>
+          ${rec && rec.duration ? `<span class="ep-time">${fmtTime(rec.position)} / ${fmtTime(rec.duration)}</span>` : ''}
+        `;
+        if (rec && rec.duration) {
+          const bar = document.createElement('div');
+          bar.className = 'ep-progress';
+          bar.style.width = Math.min(100, (rec.position / rec.duration) * 100) + '%';
+          item.appendChild(bar);
+        }
+        item.addEventListener('click', () => playEpisode(origIdx));
+        showBody.appendChild(item);
+      });
+    });
+  });
+
+  if (multiShow) {
+    const t = T[currentLang] || T.en;
+    const anyExpanded = [...document.querySelectorAll('.show-header')].some(h => !h.classList.contains('collapsed'));
+    btnCollapse.textContent = anyExpanded ? t.collapseAll : t.expandAll;
+  }
+}
+
+function playEpisode(idx, doPlay = true) {
+  if (idx < 0 || idx >= episodes.length) return;
+  const ep = episodes[idx];
+  currentIdx = idx;
+
+  const video = document.getElementById('player');
+  document.getElementById('empty').style.display = 'none';
+  video.style.display = 'block';
+
+  video.innerHTML = '';
+
+  const src = document.createElement('source');
+  src.src = videoUrl(ep.path);
+  src.type = 'video/mp4';
+  video.appendChild(src);
+
+  if (ep.vtt_path) {
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.src = videoUrl(ep.vtt_path);
+    track.srclang = 'zh';
+    track.label = '中文字幕';
+    track.default = true;
+    video.appendChild(track);
+  }
+
+  const rec = getRecord(ep.path);
+  if (rec && rec.duration && rec.position > 5 && rec.position < rec.duration * 0.95) {
+    video.addEventListener('loadedmetadata', () => {
+      video.currentTime = rec.position;
+      toast((T[currentLang] || T.en).resumedFrom(fmtTime(rec.position)));
+    }, { once: true });
+  }
+
+  video.load();
+  video.playbackRate = currentSpeed;
+  if (doPlay) video.play().catch(() => {});
+
+  const label = ep.section ? `${ep.section} · ${ep.title}` : ep.title;
+  document.getElementById('now-playing').innerHTML =
+    `<strong>${ep.show}</strong> &mdash; ${label}`;
+
+  document.getElementById('btn-prev').disabled = idx === 0;
+  document.getElementById('btn-next').disabled = idx === episodes.length - 1;
+
+  document.querySelectorAll('.ep-item').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.idx) === idx);
+  });
+
+  const active = document.querySelector('.ep-item.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+
+  if (window.matchMedia('(max-width: 640px)').matches) closeDrawer();
+}
+
+const _video = document.getElementById('player');
+
+_video.addEventListener('ended', () => {
+  const ep = episodes[currentIdx];
+  if (ep) setRecord(ep.path, _video.duration, _video.duration);
+  if (currentIdx < episodes.length - 1) playEpisode(currentIdx + 1);
+});
+
+let _lastSave = 0;
+_video.addEventListener('timeupdate', () => {
+  const now = Date.now();
+  if (now - _lastSave < 5000) return;
+  _lastSave = now;
+  const ep = episodes[currentIdx];
+  if (ep && _video.duration) {
+    setRecord(ep.path, _video.currentTime, _video.duration);
+    updateProgressBar(currentIdx, _video.currentTime, _video.duration);
+  }
+});
+
+document.getElementById('btn-prev').addEventListener('click', () => playEpisode(currentIdx - 1));
+document.getElementById('btn-next').addEventListener('click', () => playEpisode(currentIdx + 1));
+
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentSpeed = parseFloat(btn.dataset.rate);
+    const video = document.getElementById('player');
+    if (video.style.display !== 'none') video.playbackRate = currentSpeed;
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
+
+document.querySelectorAll('.skip-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const video = document.getElementById('player');
+    if (video.style.display === 'none') return;
+    video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + Number(btn.dataset.sec)));
+  });
+});
+
+document.getElementById('search').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  const filtered = q
+    ? episodes.filter(ep =>
+        ep.title.toLowerCase().includes(q) ||
+        (ep.section ?? '').toLowerCase().includes(q) ||
+        ep.show.toLowerCase().includes(q) ||
+        String(ep.ep).includes(q)
+      )
+    : episodes;
+  renderList(filtered);
+});
+
+function toggleAvatarMenu(e) {
+  e.stopPropagation();
+  document.getElementById('avatar-menu').classList.toggle('open');
+}
+document.addEventListener('click', () => {
+  document.getElementById('avatar-menu').classList.remove('open');
+});
+
+fetch('/api/me').then(r => r.json()).then(u => {
+  applyLang(u.lang || 'en');
+  if (u.admin) document.getElementById('btn-admin').style.display = '';
+  const av = document.getElementById('user-avatar');
+  av.textContent = u.username[0].toUpperCase();
+  const probe = new Image();
+  probe.onload = () => {
+    av.textContent = '';
+    const img = document.createElement('img');
+    img.src = `/api/profile/avatar/${encodeURIComponent(u.username)}?t=${Date.now()}`;
+    av.appendChild(img);
+  };
+  probe.src = `/api/profile/avatar/${encodeURIComponent(u.username)}`;
+});
+
+loadEpisodes();
+
+// ── Sidebar resize ────────────────────────────────────────────────────────────
+
+const _sidebar = document.getElementById('sidebar');
+const _resizer = document.getElementById('sidebar-resizer');
+const SIDEBAR_MIN = 180;
+const SIDEBAR_MAX = 520;
+const SIDEBAR_WIDTH_KEY = 'sidebar-width';
+
+(function restoreSidebarWidth() {
+  if (window.innerWidth <= 640) return;
+  const w = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+  if (w >= SIDEBAR_MIN && w <= SIDEBAR_MAX) _sidebar.style.width = w + 'px';
+})();
+
+let _sidebarDragging = false;
+
+_resizer.addEventListener('mousedown', e => {
+  if (window.innerWidth <= 640) return;
+  _sidebarDragging = true;
+  _resizer.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!_sidebarDragging) return;
+  const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX));
+  _sidebar.style.width = w + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (!_sidebarDragging) return;
+  _sidebarDragging = false;
+  _resizer.classList.remove('dragging');
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  const w = parseInt(_sidebar.style.width);
+  if (w) localStorage.setItem(SIDEBAR_WIDTH_KEY, w);
+});
+</script>
+</body>
+</html>

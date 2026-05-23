@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  .video-wrapper {
+    position: relative;
+    width: min(854px, 90vw);
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+  .video-wrapper iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+  .skip-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .skip-row button {
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 20px;
+    cursor: pointer;
+    transition: border-color 0.1s, color 0.1s;
+  }
+  .skip-row button:hover {
+    border-color: #e63946;
+    color: #fff;
+  }
+  .skip-row button.primary {
+    background: #e63946;
+    border-color: #e63946;
+    color: #fff;
+  }
+  .skip-row button.primary:hover { background: #c1121f; border-color: #c1121f; }
+  .skip-row button:disabled { opacity: 0.5; cursor: default; }
+</style>
+</head>
+<body>
+<div class="video-wrapper">
+  <iframe
+    id="yt"
+    src=""
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowfullscreen>
+  </iframe>
+</div>
+<div class="skip-row">
+  <button onclick="skipNow()">Skip For Now</button>
+  <button onclick="skip('today')">Skip Today</button>
+  <button onclick="skip('week')">Skip This Week</button>
+  <button class="primary" onclick="skip('always')">Skip Always</button>
+</div>
+<script>
+  const NEXT = '{next}';
+  fetch('/api/memes').then(r => r.json()).then(ids => {
+    if (!ids.length) { window.location.href = NEXT; return; }
+    const id = ids[Math.floor(Math.random() * ids.length)];
+    document.getElementById("yt").src =
+      "https://www.youtube.com/embed/" + id + "?autoplay=1";
+  });
+
+  function skipNow() { sessionStorage.setItem('meme_skip_now', '1'); window.location.href = NEXT; }
+
+  async function skip(preset) {
+    document.querySelectorAll('.skip-row button').forEach(b => b.disabled = true);
+    await fetch('/api/profile/meme-skip', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preset }),
+    });
+    window.location.href = NEXT;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Video Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: #141414;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 36px 32px;
+    width: 320px;
+  }
+  h1 { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  p  { font-size: 12px; color: #555; margin-bottom: 24px; }
+  label { display: block; font-size: 11px; color: #777; margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; }
+  input {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: #e0e0e0;
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+  input:focus { border-color: #e63946; }
+  button {
+    width: 100%;
+    background: #e63946;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: background 0.1s;
+  }
+  button:hover { background: #c1121f; }
+  .error {
+    background: #2a0a0d;
+    border: 1px solid #5c1a1a;
+    border-radius: 6px;
+    color: #ff6b6b;
+    font-size: 12px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Video Viewer</h1>
+  <p>Sign in to continue</p>
+  {error}
+  <form method="post">
+    <label>Username</label>
+    <input type="text" name="username" autocomplete="username" autofocus>
+    <label>Password</label>
+    <input type="password" name="password" autocomplete="current-password">
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

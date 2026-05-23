@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+app/memes.json
+app/settings.py
+app/users.json
+configs/
+docker/
+scripts/
+videos/
