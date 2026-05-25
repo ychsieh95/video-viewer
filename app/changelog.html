@@ -228,6 +228,23 @@
         <div class="cl-dot"></div>
         <div class="cl-content">
           <div class="cl-header">
+            <span class="cl-version">v1.7</span>
+            <span class="cl-date">2026-05</span>
+          </div>
+          <div class="cl-title">TYPE/NAME Directory Structure</div>
+          <ul class="cl-items">
+            <li>Video root now uses a two-level layout: TYPE/NAME/… (e.g. Drama/My Show/EP01.mp4)</li>
+            <li>Sidebar groups by type at the top level, then by show within each type</li>
+            <li>Admin permission tree updated to reflect the new three-level hierarchy (type → show → section/file)</li>
+            <li>Files without an EP## prefix are assigned index 01 instead of 9999</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="changelog-entry">
+        <div class="cl-dot"></div>
+        <div class="cl-content">
+          <div class="cl-header">
             <span class="cl-version">v1.6</span>
             <span class="cl-date">2025-05</span>
           </div>
@@ -344,22 +361,30 @@
 
 <script>
 fetch('/api/episodes').then(r => r.json()).then(episodes => {
-  const showMap = new Map();
+  const typeMap = new Map();
   episodes.forEach(ep => {
+    if (!typeMap.has(ep.type)) typeMap.set(ep.type, new Map());
+    const showMap = typeMap.get(ep.type);
     showMap.set(ep.show, (showMap.get(ep.show) || 0) + 1);
   });
 
   const list = document.getElementById('show-list');
-  if (showMap.size === 0) {
+  if (typeMap.size === 0) {
     list.innerHTML = '<div style="color:#555;font-size:13px">No videos available.</div>';
     return;
   }
   list.innerHTML = '';
-  showMap.forEach((count, name) => {
-    const row = document.createElement('div');
-    row.className = 'show-row';
-    row.innerHTML = `<span class="show-name">${name}</span><span class="ep-badge">${count} ep</span>`;
-    list.appendChild(row);
+  typeMap.forEach((showMap, typeName) => {
+    const typeLabel = document.createElement('div');
+    typeLabel.style.cssText = 'font-size:11px;font-weight:700;color:#555;letter-spacing:0.8px;text-transform:uppercase;padding:8px 0 6px;';
+    typeLabel.textContent = typeName;
+    list.appendChild(typeLabel);
+    showMap.forEach((count, name) => {
+      const row = document.createElement('div');
+      row.className = 'show-row';
+      row.innerHTML = `<span class="show-name">${name}</span><span class="ep-badge">${count} ep</span>`;
+      list.appendChild(row);
+    });
   });
 });
 </script>

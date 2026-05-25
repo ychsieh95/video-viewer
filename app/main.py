@@ -437,33 +437,52 @@ def admin_unban_ip(ip: str):
 @admin_required
 def admin_library():
     result = []
-    for show_dir in sorted(VIDEO_ROOT.iterdir()):
-        if not show_dir.is_dir() or show_dir.name in IGNORED or show_dir.name.startswith("."):
+    for type_dir in sorted(VIDEO_ROOT.iterdir()):
+        if not type_dir.is_dir() or type_dir.name in IGNORED or type_dir.name.startswith("."):
             continue
-        show: dict = {"name": show_dir.name, "path": show_dir.name, "children": []}
-        for f in sorted(
-            (f for f in show_dir.iterdir() if f.is_file() and f.suffix == ".mp4"),
-            key=lambda f: (ep_num(f.name), f.name),
+        type_entry: dict = {"name": type_dir.name, "path": type_dir.name, "children": []}
+        for name_dir in sorted(
+            d for d in type_dir.iterdir()
+            if d.is_dir() and d.name not in IGNORED and not d.name.startswith(".")
         ):
-            show["children"].append({"name": f.name, "path": f"{show_dir.name}/{f.name}", "type": "file"})
-        for sec_dir in sorted(d for d in show_dir.iterdir() if d.is_dir()):
-            files = sorted(
-                (f for f in sec_dir.iterdir() if f.is_file() and f.suffix == ".mp4"),
+            name_entry: dict = {
+                "name": name_dir.name,
+                "path": f"{type_dir.name}/{name_dir.name}",
+                "children": [],
+            }
+            for f in sorted(
+                (f for f in name_dir.iterdir() if f.is_file() and f.suffix == ".mp4"),
                 key=lambda f: (ep_num(f.name), f.name),
-            )
-            if not files:
-                continue
-            show["children"].append({
-                "name": sec_dir.name,
-                "path": f"{show_dir.name}/{sec_dir.name}",
-                "type": "folder",
-                "children": [
-                    {"name": f.name, "path": f"{show_dir.name}/{sec_dir.name}/{f.name}", "type": "file"}
-                    for f in files
-                ],
-            })
-        if show["children"]:
-            result.append(show)
+            ):
+                name_entry["children"].append({
+                    "name": f.name,
+                    "path": f"{type_dir.name}/{name_dir.name}/{f.name}",
+                    "type": "file",
+                })
+            for sec_dir in sorted(d for d in name_dir.iterdir() if d.is_dir()):
+                files = sorted(
+                    (f for f in sec_dir.iterdir() if f.is_file() and f.suffix == ".mp4"),
+                    key=lambda f: (ep_num(f.name), f.name),
+                )
+                if not files:
+                    continue
+                name_entry["children"].append({
+                    "name": sec_dir.name,
+                    "path": f"{type_dir.name}/{name_dir.name}/{sec_dir.name}",
+                    "type": "folder",
+                    "children": [
+                        {
+                            "name": f.name,
+                            "path": f"{type_dir.name}/{name_dir.name}/{sec_dir.name}/{f.name}",
+                            "type": "file",
+                        }
+                        for f in files
+                    ],
+                })
+            if name_entry["children"]:
+                type_entry["children"].append(name_entry)
+        if type_entry["children"]:
+            result.append(type_entry)
     return jsonify(result)
 
 
@@ -502,45 +521,49 @@ def ep_num(name: str) -> int:
 
 def scan_videos(allowed_paths=None) -> list[dict]:
     result = []
-    for show_dir in sorted(VIDEO_ROOT.iterdir()):
-        if not show_dir.is_dir() or show_dir.name in IGNORED or show_dir.name.startswith("."):
+    for type_dir in sorted(VIDEO_ROOT.iterdir()):
+        if not type_dir.is_dir() or type_dir.name in IGNORED or type_dir.name.startswith("."):
             continue
-        direct = sorted(
-            [f for f in show_dir.iterdir() if f.is_file() and f.suffix == ".mp4"],
-            key=lambda f: (ep_num(f.name), f.name),
-        )
-        for f in direct:
-            path = f"{show_dir.name}/{f.name}"
-            if not _is_path_allowed(allowed_paths, path):
-                continue
-            vtt = f.with_suffix(".vtt")
-            ep = ep_num(f.name)
-            result.append({
-                "show": show_dir.name, "section": None, "ep": ep,
-                "title": _ep_title(f.stem),
-                "path": path,
-                "vtt_path": f"{show_dir.name}/{vtt.name}" if vtt.exists() else None,
-            })
-        for sec_dir in sorted(d for d in show_dir.iterdir() if d.is_dir()):
-            files = sorted(
-                [f for f in sec_dir.iterdir() if f.is_file() and f.suffix == ".mp4"],
+        for name_dir in sorted(
+            d for d in type_dir.iterdir()
+            if d.is_dir() and d.name not in IGNORED and not d.name.startswith(".")
+        ):
+            direct = sorted(
+                [f for f in name_dir.iterdir() if f.is_file() and f.suffix == ".mp4"],
                 key=lambda f: (ep_num(f.name), f.name),
             )
-            for f in files:
-                path = f"{show_dir.name}/{sec_dir.name}/{f.name}"
+            for f in direct:
+                path = f"{type_dir.name}/{name_dir.name}/{f.name}"
                 if not _is_path_allowed(allowed_paths, path):
                     continue
-                vtt = sec_dir / f.with_suffix(".vtt").name
+                vtt = f.with_suffix(".vtt")
                 ep = ep_num(f.name)
                 result.append({
-                    "show": show_dir.name, "section": sec_dir.name, "ep": ep,
+                    "type": type_dir.name, "show": name_dir.name, "section": None, "ep": ep,
                     "title": _ep_title(f.stem),
                     "path": path,
-                    "vtt_path": (
-                        f"{show_dir.name}/{sec_dir.name}/{vtt.name}"
-                        if vtt.exists() else None
-                    ),
+                    "vtt_path": f"{type_dir.name}/{name_dir.name}/{vtt.name}" if vtt.exists() else None,
                 })
+            for sec_dir in sorted(d for d in name_dir.iterdir() if d.is_dir()):
+                files = sorted(
+                    [f for f in sec_dir.iterdir() if f.is_file() and f.suffix == ".mp4"],
+                    key=lambda f: (ep_num(f.name), f.name),
+                )
+                for f in files:
+                    path = f"{type_dir.name}/{name_dir.name}/{sec_dir.name}/{f.name}"
+                    if not _is_path_allowed(allowed_paths, path):
+                        continue
+                    vtt = sec_dir / f.with_suffix(".vtt").name
+                    ep = ep_num(f.name)
+                    result.append({
+                        "type": type_dir.name, "show": name_dir.name, "section": sec_dir.name, "ep": ep,
+                        "title": _ep_title(f.stem),
+                        "path": path,
+                        "vtt_path": (
+                            f"{type_dir.name}/{name_dir.name}/{sec_dir.name}/{vtt.name}"
+                            if vtt.exists() else None
+                        ),
+                    })
     return result
 
 

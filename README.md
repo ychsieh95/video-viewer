@@ -84,17 +84,20 @@ The default admin account is created from `settings.py` on first start if `users
 
 ## Video Library Layout
 
-Place videos under `videos/`. Each top-level folder is a show; episodes are `.mp4` files named `EP##` or `EP## | Episode Title`:
+Videos are organised as `TYPE/NAME/...` under `VIDEO_ROOT`. The top-level folder is the **type** (e.g. Drama, Movie, Anime), the second level is the **show name**, and episodes are `.mp4` files named `EP##` or `EP## | Episode Title`:
 
 ```text
 videos/
-└── My Show/
-    ├── EP01.mp4                   # title shown as "EP01"
-    ├── EP01.vtt                   # optional WebVTT subtitles
-    ├── EP02 | The Pilot.mp4       # title shown as "The Pilot"
-    └── Season 2/                  # optional sub-sections
-        └── EP01.mp4
+└── Drama/                         # TYPE — top-level category
+    └── My Show/                   # NAME — the show
+        ├── EP01.mp4               # title shown as "EP01"
+        ├── EP01.vtt               # optional WebVTT subtitles
+        ├── EP02 | The Pilot.mp4   # title shown as "The Pilot"
+        └── Season 2/              # optional sub-section
+            └── EP01.mp4
 ```
+
+Files without an `EP##` prefix are assigned index `01` and sorted by filename.
 
 Use the scripts in `scripts/` to prepare files:
 
@@ -125,6 +128,7 @@ bash scripts/normalize_audio.sh [search_dir]
 In the admin panel, click **Perms** on any non-admin user to open the permissions modal.
 
 - **Full access (unrestricted)** — user sees the entire library (default for new accounts)
+- **Type-level** — check a type folder (e.g. Drama) to grant access to all shows inside it
 - **Show-level** — check a show folder to grant access to all its episodes
 - **Section-level** — check a sub-folder (e.g. Season 2) within a show
 - **File-level** — check individual episode files for fine-grained control

@@ -181,7 +181,7 @@
   #episode-list::-webkit-scrollbar-track { background: #141414; }
   #episode-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
 
-  .show-header {
+  .type-header, .show-header {
     padding: 10px 12px 6px;
     display: flex;
     align-items: center;
@@ -195,15 +195,24 @@
     border-bottom: 1px solid #1e1e1e;
     transition: color 0.1s;
   }
-  .show-header:hover { color: #fff; }
-  .show-header .arrow {
+  .type-header:hover, .show-header:hover { color: #fff; }
+  .type-header .arrow, .show-header .arrow {
     font-size: 9px;
     color: #555;
     transition: transform 0.15s;
   }
-  .show-header.collapsed .arrow { transform: rotate(-90deg); }
+  .type-header.collapsed .arrow, .show-header.collapsed .arrow { transform: rotate(-90deg); }
 
-  .show-body.hidden { display: none; }
+  .type-body.hidden, .show-body.hidden { display: none; }
+
+  .type-body .show-header {
+    padding-left: 20px;
+    font-size: 11px;
+    color: #999;
+    border-bottom-color: transparent;
+  }
+  .type-body .section-label { padding-left: 28px; }
+  .type-body .ep-item { padding-left: 28px; }
 
   .section-label {
     padding: 8px 14px 3px 20px;
@@ -667,10 +676,11 @@ function applyLang(lang) {
 }
 
 function toggleCollapseAll() {
-  const headers = document.querySelectorAll('.show-header');
+  const typeHeaders = document.querySelectorAll('.type-header');
+  const selector = typeHeaders.length > 0 ? '.type-header' : '.show-header';
+  const headers = document.querySelectorAll(selector);
   const anyExpanded = [...headers].some(h => !h.classList.contains('collapsed'));
   headers.forEach(h => {
-    const showName = h.querySelector('span:last-child').textContent;
     const body = h.nextElementSibling;
     if (anyExpanded) {
       h.classList.add('collapsed');
@@ -679,7 +689,7 @@ function toggleCollapseAll() {
       h.classList.remove('collapsed');
       body.classList.remove('hidden');
     }
-    saveCollapseState(showName, anyExpanded);
+    if (h.dataset.collapseKey) saveCollapseState(h.dataset.collapseKey, anyExpanded);
   });
   const t = T[currentLang] || T.en;
   document.getElementById('btn-collapse-all').textContent = anyExpanded ? t.expandAll : t.collapseAll;
@@ -777,9 +787,10 @@ async function loadEpisodes() {
   episodes = await res.json();
 
   // update header
+  const types = [...new Set(episodes.map(e => e.type))];
   const shows = [...new Set(episodes.map(e => e.show))];
   const t = T[currentLang] || T.en;
-  if (shows.length === 1) {
+  if (types.length === 1 && shows.length === 1) {
     document.getElementById('lib-title').textContent = shows[0];
     document.getElementById('lib-sub').textContent = t.libSubSingle(episodes.length);
     document.title = shows[0];
@@ -811,86 +822,128 @@ function renderList(list) {
   const container = document.getElementById('episode-list');
   container.innerHTML = '';
 
-  // group: show → section → episodes
-  const showMap = new Map();
+  // group: type → show → section → episodes
+  const typeMap = new Map();
   list.forEach(ep => {
+    if (!typeMap.has(ep.type)) typeMap.set(ep.type, new Map());
+    const showMap = typeMap.get(ep.type);
     if (!showMap.has(ep.show)) showMap.set(ep.show, new Map());
-    const secKey = ep.section ?? '\x00'; // null section → sentinel key
     const secMap = showMap.get(ep.show);
+    const secKey = ep.section ?? '\x00';
     if (!secMap.has(secKey)) secMap.set(secKey, []);
     secMap.get(secKey).push(ep);
   });
 
-  const multiShow = showMap.size > 1;
+  const multiType = typeMap.size > 1;
+  const totalShows = [...typeMap.values()].reduce((n, sm) => n + sm.size, 0);
+  const hasHeaders = multiType || totalShows > 1;
   const btnCollapse = document.getElementById('btn-collapse-all');
-  btnCollapse.style.display = multiShow ? 'block' : 'none';
+  btnCollapse.style.display = hasHeaders ? 'block' : 'none';
 
   const collapseStates = getCollapseStates();
 
-  showMap.forEach((secMap, showName) => {
-    let showBody;
+  typeMap.forEach((showMap, typeName) => {
+    let typeBody;
 
-    if (multiShow) {
+    if (multiType) {
       const header = document.createElement('div');
-      header.className = 'show-header';
-      header.innerHTML = `<span class="arrow">▼</span><span>${showName}</span>`;
+      header.className = 'type-header';
+      header.dataset.collapseKey = 't:' + typeName;
+      header.innerHTML = `<span class="arrow">▼</span><span>${typeName}</span>`;
       container.appendChild(header);
 
-      showBody = document.createElement('div');
-      showBody.className = 'show-body';
-      container.appendChild(showBody);
+      typeBody = document.createElement('div');
+      typeBody.className = 'type-body';
+      container.appendChild(typeBody);
 
-      if (collapseStates[showName]) {
+      if (collapseStates['t:' + typeName]) {
         header.classList.add('collapsed');
-        showBody.classList.add('hidden');
+        typeBody.classList.add('hidden');
       }
 
       header.addEventListener('click', () => {
         header.classList.toggle('collapsed');
-        showBody.classList.toggle('hidden');
-        saveCollapseState(showName, header.classList.contains('collapsed'));
+        typeBody.classList.toggle('hidden');
+        saveCollapseState('t:' + typeName, header.classList.contains('collapsed'));
         const t = T[currentLang] || T.en;
-        const anyExpanded = [...document.querySelectorAll('.show-header')].some(h => !h.classList.contains('collapsed'));
+        const anyExpanded = [...document.querySelectorAll('.type-header')].some(h => !h.classList.contains('collapsed'));
         btnCollapse.textContent = anyExpanded ? t.collapseAll : t.expandAll;
       });
     } else {
-      showBody = container;
+      typeBody = container;
     }
 
-    secMap.forEach((eps, secKey) => {
-      if (secKey !== '\x00') {
-        const label = document.createElement('div');
-        label.className = 'section-label';
-        label.textContent = secKey;
-        showBody.appendChild(label);
+    const multiShow = showMap.size > 1;
+
+    showMap.forEach((secMap, showName) => {
+      let showBody;
+
+      if (multiShow) {
+        const header = document.createElement('div');
+        header.className = 'show-header';
+        header.dataset.collapseKey = 's:' + showName;
+        header.innerHTML = `<span class="arrow">▼</span><span>${showName}</span>`;
+        typeBody.appendChild(header);
+
+        showBody = document.createElement('div');
+        showBody.className = 'show-body';
+        typeBody.appendChild(showBody);
+
+        if (collapseStates['s:' + showName]) {
+          header.classList.add('collapsed');
+          showBody.classList.add('hidden');
+        }
+
+        header.addEventListener('click', () => {
+          header.classList.toggle('collapsed');
+          showBody.classList.toggle('hidden');
+          saveCollapseState('s:' + showName, header.classList.contains('collapsed'));
+          if (!multiType) {
+            const t = T[currentLang] || T.en;
+            const anyExpanded = [...document.querySelectorAll('.show-header')].some(h => !h.classList.contains('collapsed'));
+            btnCollapse.textContent = anyExpanded ? t.collapseAll : t.expandAll;
+          }
+        });
+      } else {
+        showBody = typeBody;
       }
 
-      eps.forEach(ep => {
-        const origIdx = episodes.indexOf(ep);
-        const item = document.createElement('div');
-        item.className = 'ep-item' + (origIdx === currentIdx ? ' active' : '');
-        item.dataset.idx = origIdx;
-        const rec = getRecord(ep.path);
-        item.innerHTML = `
-          <span class="ep-num">${String(ep.ep).padStart(2, '0')}</span>
-          <span class="ep-title">${ep.title}</span>
-          ${rec && rec.duration ? `<span class="ep-time">${fmtTime(rec.position)} / ${fmtTime(rec.duration)}</span>` : ''}
-        `;
-        if (rec && rec.duration) {
-          const bar = document.createElement('div');
-          bar.className = 'ep-progress';
-          bar.style.width = Math.min(100, (rec.position / rec.duration) * 100) + '%';
-          item.appendChild(bar);
+      secMap.forEach((eps, secKey) => {
+        if (secKey !== '\x00') {
+          const label = document.createElement('div');
+          label.className = 'section-label';
+          label.textContent = secKey;
+          showBody.appendChild(label);
         }
-        item.addEventListener('click', () => playEpisode(origIdx));
-        showBody.appendChild(item);
+
+        eps.forEach(ep => {
+          const origIdx = episodes.indexOf(ep);
+          const item = document.createElement('div');
+          item.className = 'ep-item' + (origIdx === currentIdx ? ' active' : '');
+          item.dataset.idx = origIdx;
+          const rec = getRecord(ep.path);
+          item.innerHTML = `
+            <span class="ep-num">${String(ep.ep).padStart(2, '0')}</span>
+            <span class="ep-title">${ep.title}</span>
+            ${rec && rec.duration ? `<span class="ep-time">${fmtTime(rec.position)} / ${fmtTime(rec.duration)}</span>` : ''}
+          `;
+          if (rec && rec.duration) {
+            const bar = document.createElement('div');
+            bar.className = 'ep-progress';
+            bar.style.width = Math.min(100, (rec.position / rec.duration) * 100) + '%';
+            item.appendChild(bar);
+          }
+          item.addEventListener('click', () => playEpisode(origIdx));
+          showBody.appendChild(item);
+        });
       });
     });
   });
 
-  if (multiShow) {
+  if (hasHeaders) {
     const t = T[currentLang] || T.en;
-    const anyExpanded = [...document.querySelectorAll('.show-header')].some(h => !h.classList.contains('collapsed'));
+    const selector = multiType ? '.type-header' : '.show-header';
+    const anyExpanded = [...document.querySelectorAll(selector)].some(h => !h.classList.contains('collapsed'));
     btnCollapse.textContent = anyExpanded ? t.collapseAll : t.expandAll;
   }
 }
@@ -997,6 +1050,7 @@ document.getElementById('search').addEventListener('input', e => {
         ep.title.toLowerCase().includes(q) ||
         (ep.section ?? '').toLowerCase().includes(q) ||
         ep.show.toLowerCase().includes(q) ||
+        ep.type.toLowerCase().includes(q) ||
         String(ep.ep).includes(q)
       )
     : episodes;

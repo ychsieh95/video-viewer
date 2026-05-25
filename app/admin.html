@@ -607,102 +607,130 @@ function renderPermTree(lib, allowedPaths) {
   hr.className = 'tree-divider';
   tree.appendChild(hr);
 
-  lib.forEach(show => {
-    const showChecked = isAllowed(show.path);
+  lib.forEach(type => {
+    const typeChecked = isAllowed(type.path);
 
-    const showDiv = document.createElement('div');
-    showDiv.className = 'tree-show';
+    const typeDiv = document.createElement('div');
+    typeDiv.className = 'tree-show';
 
-    const header = document.createElement('div');
-    header.className = 'tree-show-header';
+    const typeHeader = document.createElement('div');
+    typeHeader.className = 'tree-show-header';
 
-    const showCb = document.createElement('input');
-    showCb.type = 'checkbox';
-    showCb.dataset.path = show.path;
-    showCb.checked = showChecked;
+    const typeCb = document.createElement('input');
+    typeCb.type = 'checkbox';
+    typeCb.dataset.path = type.path;
+    typeCb.checked = typeChecked;
 
-    const showLabel = document.createElement('span');
-    showLabel.className = 'tree-show-label';
-    showLabel.textContent = show.name;
+    const typeLabel = document.createElement('span');
+    typeLabel.className = 'tree-show-label';
+    typeLabel.textContent = type.name;
 
-    const toggle = document.createElement('span');
-    toggle.className = 'tree-toggle';
-    toggle.textContent = '▼';
+    const typeToggle = document.createElement('span');
+    typeToggle.className = 'tree-toggle';
+    typeToggle.textContent = '▼';
 
-    header.appendChild(showCb);
-    header.appendChild(showLabel);
-    header.appendChild(toggle);
+    typeHeader.appendChild(typeCb);
+    typeHeader.appendChild(typeLabel);
+    typeHeader.appendChild(typeToggle);
 
-    const body = document.createElement('div');
-    body.className = 'tree-show-body';
+    const typeBody = document.createElement('div');
+    typeBody.className = 'tree-show-body';
 
-    toggle.addEventListener('click', () => {
-      body.classList.toggle('hidden');
-      toggle.style.transform = body.classList.contains('hidden') ? 'rotate(-90deg)' : '';
+    typeToggle.addEventListener('click', () => {
+      typeBody.classList.toggle('hidden');
+      typeToggle.style.transform = typeBody.classList.contains('hidden') ? 'rotate(-90deg)' : '';
     });
 
-    showCb.addEventListener('change', () => setChildrenDisabled(body, showCb.checked));
+    typeCb.addEventListener('change', () => setChildrenDisabled(typeBody, typeCb.checked));
 
-    show.children.forEach(child => {
-      if (child.type === 'file') {
-        const row = document.createElement('div');
-        row.className = 'tree-file-row';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.dataset.path = child.path;
-        cb.checked = showChecked || isAllowed(child.path);
-        cb.disabled = showChecked;
-        const lbl = document.createElement('span');
-        lbl.className = 'tree-file-label';
-        lbl.textContent = child.name;
-        row.appendChild(cb);
-        row.appendChild(lbl);
-        body.appendChild(row);
-      } else {
-        // sub-folder / section
-        const folderChecked = showChecked || isAllowed(child.path);
-        const secHeader = document.createElement('div');
-        secHeader.className = 'tree-subfolder-header';
-        const secCb = document.createElement('input');
-        secCb.type = 'checkbox';
-        secCb.dataset.path = child.path;
-        secCb.checked = folderChecked;
-        secCb.disabled = showChecked;
-        const secLbl = document.createElement('span');
-        secLbl.className = 'tree-subfolder-label';
-        secLbl.textContent = child.name;
-        secHeader.appendChild(secCb);
-        secHeader.appendChild(secLbl);
+    type.children.forEach(name => {
+      const nameChecked = typeChecked || isAllowed(name.path);
 
-        const secFiles = document.createElement('div');
-        secFiles.className = 'tree-subfolder-files';
+      const nameHeader = document.createElement('div');
+      nameHeader.className = 'tree-subfolder-header';
 
-        secCb.addEventListener('change', () => setChildrenDisabled(secFiles, secCb.checked));
+      const nameCb = document.createElement('input');
+      nameCb.type = 'checkbox';
+      nameCb.dataset.path = name.path;
+      nameCb.checked = nameChecked;
+      nameCb.disabled = typeChecked;
 
-        child.children.forEach(file => {
+      const nameLbl = document.createElement('span');
+      nameLbl.className = 'tree-subfolder-label';
+      nameLbl.textContent = name.name;
+
+      nameHeader.appendChild(nameCb);
+      nameHeader.appendChild(nameLbl);
+
+      const nameFiles = document.createElement('div');
+      nameFiles.className = 'tree-subfolder-files';
+
+      nameCb.addEventListener('change', () => setChildrenDisabled(nameFiles, nameCb.checked));
+
+      name.children.forEach(child => {
+        if (child.type === 'file') {
           const row = document.createElement('div');
           row.className = 'tree-file-row';
           const cb = document.createElement('input');
           cb.type = 'checkbox';
-          cb.dataset.path = file.path;
-          cb.checked = folderChecked || isAllowed(file.path);
-          cb.disabled = folderChecked;
+          cb.dataset.path = child.path;
+          cb.checked = nameChecked || isAllowed(child.path);
+          cb.disabled = nameChecked;
           const lbl = document.createElement('span');
           lbl.className = 'tree-file-label';
-          lbl.textContent = file.name;
+          lbl.textContent = child.name;
           row.appendChild(cb);
           row.appendChild(lbl);
-          secFiles.appendChild(row);
-        });
+          nameFiles.appendChild(row);
+        } else {
+          // sub-folder / section
+          const folderChecked = nameChecked || isAllowed(child.path);
+          const secHeader = document.createElement('div');
+          secHeader.className = 'tree-subfolder-header';
+          const secCb = document.createElement('input');
+          secCb.type = 'checkbox';
+          secCb.dataset.path = child.path;
+          secCb.checked = folderChecked;
+          secCb.disabled = nameChecked;
+          const secLbl = document.createElement('span');
+          secLbl.className = 'tree-subfolder-label';
+          secLbl.textContent = child.name;
+          secHeader.appendChild(secCb);
+          secHeader.appendChild(secLbl);
 
-        body.appendChild(secHeader);
-        body.appendChild(secFiles);
-      }
+          const secFiles = document.createElement('div');
+          secFiles.className = 'tree-subfolder-files';
+
+          secCb.addEventListener('change', () => setChildrenDisabled(secFiles, secCb.checked));
+
+          child.children.forEach(file => {
+            const row = document.createElement('div');
+            row.className = 'tree-file-row';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.dataset.path = file.path;
+            cb.checked = folderChecked || isAllowed(file.path);
+            cb.disabled = folderChecked;
+            const lbl = document.createElement('span');
+            lbl.className = 'tree-file-label';
+            lbl.textContent = file.name;
+            row.appendChild(cb);
+            row.appendChild(lbl);
+            secFiles.appendChild(row);
+          });
+
+          nameFiles.appendChild(secHeader);
+          nameFiles.appendChild(secFiles);
+        }
+      });
+
+      typeBody.appendChild(nameHeader);
+      typeBody.appendChild(nameFiles);
     });
 
-    showDiv.appendChild(header);
-    showDiv.appendChild(body);
-    tree.appendChild(showDiv);
+    typeDiv.appendChild(typeHeader);
+    typeDiv.appendChild(typeBody);
+    tree.appendChild(typeDiv);
   });
 }
 
