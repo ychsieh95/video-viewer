@@ -497,7 +497,7 @@ def admin_set_permissions(username: str):
 
 def ep_num(name: str) -> int:
     m = EP_RE.search(name)
-    return int(m.group(1)) if m else 9999
+    return int(m.group(1)) if m else 1
 
 
 def scan_videos(allowed_paths=None) -> list[dict]:
