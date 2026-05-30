@@ -190,6 +190,33 @@
   .meme-link { font-size: 11px; color: #4a6eb5; text-decoration: none; white-space: nowrap; }
   .meme-link:hover { color: #6b8fe6; }
 
+  .badge-dead  { background: #1a1a1a; color: #555; border: 1px solid #333; }
+  .btn-disable {
+    background: none;
+    border: 1px solid #3a2a1a;
+    border-radius: 5px;
+    color: #a06030;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .btn-disable:hover { background: #2a1a0a; color: #e08040; border-color: #6a3a1a; }
+  .btn-enable {
+    background: none;
+    border: 1px solid #1a3a2a;
+    border-radius: 5px;
+    color: #3a9060;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .btn-enable:hover { background: #0a2a1a; color: #50c080; border-color: #1a6a3a; }
+  .user-row.dead { opacity: 0.5; }
+
   /* Permissions button */
   .btn-perms {
     background: none;
@@ -417,13 +444,22 @@ async function loadUsers() {
       : 'Never logged in';
     const permsBtn = u.admin ? '' : `<button class="btn-perms" onclick="openPermModal('${esc(u.username)}')">Perms</button>`;
     const dot = `<span class="status-dot ${u.online ? 'online' : 'offline'}" title="${u.online ? 'Online' : 'Offline'}"></span>`;
+    if (!u.alive) row.classList.add('dead');
+    const aliveLabel = u.alive ? 'Disable' : 'Enable';
+    const aliveClass = u.alive ? 'btn-disable' : 'btn-enable';
+    const roleBadge = u.admin
+      ? `<span class="badge badge-admin">Admin</span>`
+      : `<span class="badge badge-user">User</span>`;
+    const aliveBadge = u.alive ? '' : `<span class="badge badge-dead">Disabled</span>`;
     row.innerHTML = `
       <div class="user-info">
         <span class="user-name">${dot}${esc(u.username)}</span>
         <span class="user-last-login">${loginInfo}</span>
       </div>
-      <span class="badge ${u.admin ? 'badge-admin' : 'badge-user'}">${u.admin ? 'Admin' : 'User'}</span>
+      ${aliveBadge}
+      ${roleBadge}
       ${permsBtn}
+      <button class="${aliveClass}" onclick="toggleAlive('${esc(u.username)}', ${u.alive}, this)">${aliveLabel}</button>
       <button class="btn-delete" onclick="deleteUser('${esc(u.username)}', this)">Delete</button>
     `;
     list.appendChild(row);
@@ -441,6 +477,26 @@ async function deleteUser(username, btn) {
   } else {
     btn.disabled = false;
     toast(body.error || 'Failed to delete.', true);
+  }
+}
+
+async function toggleAlive(username, currentlyAlive, btn) {
+  const newAlive = !currentlyAlive;
+  const action = newAlive ? 'enable' : 'disable';
+  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} account "${username}"?`)) return;
+  btn.disabled = true;
+  const res = await fetch(`/admin/api/users/${encodeURIComponent(username)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alive: newAlive }),
+  });
+  const body = await res.json();
+  if (res.ok) {
+    toast(`Account ${action}d.`);
+    loadUsers();
+  } else {
+    btn.disabled = false;
+    toast(body.error || `Failed to ${action}.`, true);
   }
 }
 

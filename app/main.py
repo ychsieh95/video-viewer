@@ -207,6 +207,9 @@ def login():
             users = load_users()
             user = users.get(u)
             if user and check_password_hash(user["hash"], p):
+                if not user.get("alive", True):
+                    error = "This account has been disabled."
+                    return (_APP_DIR / "login.html").read_text().replace("{error}", error)
                 _reset(ip)
                 user["last_login_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
                 user["last_login_ip"] = ip
@@ -355,6 +358,7 @@ def admin_list_users():
         {
             "username": u,
             "admin": data.get("admin", False),
+            "alive": data.get("alive", True),
             "last_login_at": data.get("last_login_at"),
             "last_login_ip": data.get("last_login_ip"),
             "online": _is_online(u),
@@ -402,6 +406,31 @@ def admin_delete_user(username: str):
     del users[username]
     save_users(users)
     return jsonify({"ok": True})
+
+
+@app.route("/admin/api/users/<username>", methods=["PATCH"])
+@admin_required
+def admin_patch_user(username: str):
+    users = load_users()
+    if username not in users:
+        return jsonify({"error": "User not found."}), 404
+    if username == session["username"]:
+        return jsonify({"error": "Cannot disable your own account."}), 400
+
+    body = request.get_json(silent=True) or {}
+    if "alive" in body:
+        alive = bool(body["alive"])
+        if not alive and users[username].get("admin"):
+            remaining_admins = [
+                u for u, d in users.items()
+                if d.get("admin") and u != username
+            ]
+            if not remaining_admins:
+                return jsonify({"error": "Cannot disable the last admin."}), 400
+        users[username]["alive"] = alive
+        save_users(users)
+
+    return jsonify({"ok": True, "alive": users[username].get("alive", True)})
 
 
 @app.route("/admin/api/bans", methods=["GET"])
