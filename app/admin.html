@@ -447,9 +447,7 @@ async function loadUsers() {
     if (!u.alive) row.classList.add('dead');
     const aliveLabel = u.alive ? 'Disable' : 'Enable';
     const aliveClass = u.alive ? 'btn-disable' : 'btn-enable';
-    const roleBadge = u.admin
-      ? `<span class="badge badge-admin">Admin</span>`
-      : `<span class="badge badge-user">User</span>`;
+    const roleBadge = u.admin ? `<span class="badge badge-admin">Admin</span>` : '';
     const aliveBadge = u.alive ? '' : `<span class="badge badge-dead">Disabled</span>`;
     row.innerHTML = `
       <div class="user-info">

@@ -70,7 +70,10 @@ def _avatar_basename(username: str) -> str:
 
 def load_users() -> dict:
     if USERS_FILE.exists():
-        return json.loads(USERS_FILE.read_text())
+        try:
+            return json.loads(USERS_FILE.read_text())
+        except json.JSONDecodeError as e:
+            raise SystemExit(f"ERROR: {USERS_FILE} is corrupted: {e}\nFix or delete the file to reset.") from e
     return {}
 
 
