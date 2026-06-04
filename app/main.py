@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import mimetypes
 import os
@@ -151,6 +152,17 @@ def admin_required(f):
     return decorated
 
 
+def mod_or_admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("username"):
+            return redirect(url_for("login", next=request.path))
+        if not session.get("is_admin") and not session.get("is_mod"):
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated
+
+
 # ── Login rate limiting ───────────────────────────────────────────────────────
 
 ATTEMPT_LIMIT = 3
@@ -161,7 +173,14 @@ _attempts: dict = {}  # ip -> {"count": int, "until": datetime | None}
 
 def _client_ip() -> str:
     ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
-    return ip.split(",")[0].strip()
+    ip = ip.split(",")[0].strip()
+    try:
+        addr = ipaddress.ip_address(ip)
+        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+            ip = str(addr.ipv4_mapped)
+    except ValueError:
+        pass
+    return ip
 
 
 def _is_banned(ip: str) -> datetime | None:
@@ -220,6 +239,7 @@ def login():
                 save_users(users)
                 session["username"] = u
                 session["is_admin"] = user.get("admin", False)
+                session["is_mod"] = user.get("moderator", False)
                 dest = request.args.get("next") or url_for("index")
                 sep = "&" if "?" in dest else "?"
                 dest = f"{dest}{sep}no_autoplay=1"
@@ -254,6 +274,7 @@ def me():
     return jsonify({
         "username": session["username"],
         "admin": session.get("is_admin", False),
+        "moderator": session.get("is_mod", False),
         "lang": user.get("lang", "en"),
     })
 
@@ -342,7 +363,7 @@ def serve_avatar(username: str):
 
 
 @app.route("/admin")
-@admin_required
+@mod_or_admin_required
 def admin():
     return (_APP_DIR / "admin.html").read_text()
 
@@ -354,13 +375,14 @@ def changelog():
 
 
 @app.route("/admin/api/users", methods=["GET"])
-@admin_required
+@mod_or_admin_required
 def admin_list_users():
     users = load_users()
     return jsonify([
         {
             "username": u,
             "admin": data.get("admin", False),
+            "moderator": data.get("moderator", False),
             "alive": data.get("alive", True),
             "last_login_at": data.get("last_login_at"),
             "last_login_ip": data.get("last_login_ip"),
@@ -377,6 +399,7 @@ def admin_add_user():
     username = (body.get("username") or "").strip()
     password = body.get("password") or ""
     is_admin = bool(body.get("admin", False))
+    is_moderator = False if is_admin else bool(body.get("moderator", False))
 
     if not username or not password:
         return jsonify({"error": "Username and password required."}), 400
@@ -385,7 +408,7 @@ def admin_add_user():
     if username in users:
         return jsonify({"error": f"User '{username}' already exists."}), 409
 
-    users[username] = {"hash": generate_password_hash(password), "admin": is_admin}
+    users[username] = {"hash": generate_password_hash(password), "admin": is_admin, "moderator": is_moderator}
     save_users(users)
     return jsonify({"ok": True}), 201
 
@@ -412,28 +435,51 @@ def admin_delete_user(username: str):
 
 
 @app.route("/admin/api/users/<username>", methods=["PATCH"])
-@admin_required
+@mod_or_admin_required
 def admin_patch_user(username: str):
     users = load_users()
     if username not in users:
         return jsonify({"error": "User not found."}), 404
     if username == session["username"]:
-        return jsonify({"error": "Cannot disable your own account."}), 400
+        return jsonify({"error": "Cannot modify your own account."}), 400
 
+    is_admin_req = session.get("is_admin")
+    target = users[username]
     body = request.get_json(silent=True) or {}
+
     if "alive" in body:
+        if not is_admin_req and (target.get("admin") or target.get("moderator")):
+            return jsonify({"error": "Moderators can only disable regular users."}), 403
         alive = bool(body["alive"])
-        if not alive and users[username].get("admin"):
-            remaining_admins = [
-                u for u, d in users.items()
-                if d.get("admin") and u != username
-            ]
+        if not alive and target.get("admin"):
+            remaining_admins = [u for u, d in users.items() if d.get("admin") and u != username]
             if not remaining_admins:
                 return jsonify({"error": "Cannot disable the last admin."}), 400
-        users[username]["alive"] = alive
-        save_users(users)
+        target["alive"] = alive
 
-    return jsonify({"ok": True, "alive": users[username].get("alive", True)})
+    if "moderator" in body:
+        if not is_admin_req:
+            return jsonify({"error": "Only admins can change moderator status."}), 403
+        if target.get("admin"):
+            return jsonify({"error": "Cannot make an admin a moderator."}), 400
+        target["moderator"] = bool(body["moderator"])
+
+    if "admin" in body:
+        if not is_admin_req:
+            return jsonify({"error": "Only admins can change admin status."}), 403
+        new_admin = bool(body["admin"])
+        if new_admin:
+            target["admin"] = True
+            target["moderator"] = False
+        else:
+            remaining_admins = [u for u, d in users.items() if d.get("admin") and u != username]
+            if not remaining_admins:
+                return jsonify({"error": "Cannot demote the last admin."}), 400
+            target["admin"] = False
+            target["moderator"] = True  # demote to mod, not plain user
+
+    save_users(users)
+    return jsonify({"ok": True, "alive": target.get("alive", True), "moderator": target.get("moderator", False), "admin": target.get("admin", False)})
 
 
 @app.route("/admin/api/bans", methods=["GET"])
@@ -466,7 +512,7 @@ def admin_unban_ip(ip: str):
 
 
 @app.route("/admin/api/library")
-@admin_required
+@mod_or_admin_required
 def admin_library():
     result = []
     for type_dir in sorted(VIDEO_ROOT.iterdir()):
@@ -519,27 +565,33 @@ def admin_library():
 
 
 @app.route("/admin/api/users/<username>/permissions", methods=["GET"])
-@admin_required
+@mod_or_admin_required
 def admin_get_permissions(username: str):
     users = load_users()
     if username not in users:
         return jsonify({"error": "User not found."}), 404
-    return jsonify({"allowed_paths": users[username].get("allowed_paths")})
+    target = users[username]
+    if not session.get("is_admin") and (target.get("admin") or target.get("moderator")):
+        return jsonify({"error": "Insufficient permissions."}), 403
+    return jsonify({"allowed_paths": target.get("allowed_paths")})
 
 
 @app.route("/admin/api/users/<username>/permissions", methods=["PUT"])
-@admin_required
+@mod_or_admin_required
 def admin_set_permissions(username: str):
     users = load_users()
     if username not in users:
         return jsonify({"error": "User not found."}), 404
+    target = users[username]
+    if not session.get("is_admin") and (target.get("admin") or target.get("moderator")):
+        return jsonify({"error": "Insufficient permissions."}), 403
     body = request.get_json(silent=True) or {}
     allowed = body.get("allowed_paths")
     if allowed is not None and not isinstance(allowed, list):
         return jsonify({"error": "allowed_paths must be null or a list."}), 400
     if isinstance(allowed, list):
         allowed = [p for p in allowed if isinstance(p, str)]
-    users[username]["allowed_paths"] = allowed
+    target["allowed_paths"] = allowed
     save_users(users)
     return jsonify({"ok": True})
 
@@ -647,7 +699,41 @@ def set_meme_skip():
 @app.route("/api/memes")
 @login_required
 def list_memes():
-    return jsonify(load_memes())
+    all_memes = load_memes()
+    users = load_users()
+    user = users.get(session["username"], {})
+    if user.get("admin"):
+        return jsonify(all_memes)
+    allowed_memes = user.get("allowed_memes")
+    if allowed_memes is None:
+        return jsonify(all_memes)
+    return jsonify([m for m in all_memes if m in allowed_memes])
+
+
+@app.route("/admin/api/users/<username>/memes", methods=["GET"])
+@admin_required
+def admin_get_user_memes(username: str):
+    users = load_users()
+    if username not in users:
+        return jsonify({"error": "User not found."}), 404
+    return jsonify({"allowed_memes": users[username].get("allowed_memes")})
+
+
+@app.route("/admin/api/users/<username>/memes", methods=["PUT"])
+@admin_required
+def admin_set_user_memes(username: str):
+    users = load_users()
+    if username not in users:
+        return jsonify({"error": "User not found."}), 404
+    body = request.get_json(silent=True) or {}
+    allowed = body.get("allowed_memes")
+    if allowed is not None and not isinstance(allowed, list):
+        return jsonify({"error": "allowed_memes must be null or a list."}), 400
+    if isinstance(allowed, list):
+        allowed = [m for m in allowed if isinstance(m, str)]
+    users[username]["allowed_memes"] = allowed
+    save_users(users)
+    return jsonify({"ok": True})
 
 
 @app.route("/admin/api/memes", methods=["GET"])

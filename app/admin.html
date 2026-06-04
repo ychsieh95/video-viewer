@@ -57,7 +57,13 @@
     border-radius: 7px;
     border: 1px solid #222;
   }
-  .user-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .user-info { flex: 0 0 50%; max-width: 50%; display: flex; flex-direction: column; gap: 2px; }
+  .user-actions { flex: 0 0 50%; max-width: 50%; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+  @media (max-width: 540px) {
+    .user-row { flex-wrap: wrap; }
+    .user-info { flex: 1 1 100%; max-width: 100%; }
+    .user-actions { flex: 1 1 100%; max-width: 100%; justify-content: flex-start; }
+  }
   .user-name { font-size: 14px; color: #e0e0e0; display: flex; align-items: center; gap: 6px; }
   .user-last-login { font-size: 11px; color: #555; }
   .status-dot {
@@ -74,6 +80,7 @@
     text-transform: uppercase;
   }
   .badge-admin { background: #2a1a0a; color: #e6a817; border: 1px solid #5c3a0a; }
+  .badge-mod   { background: #1e1a2e; color: #a78bfa; border: 1px solid #3d2a6e; }
   .badge-user  { background: #1a1a2a; color: #6b8fe6; border: 1px solid #1a2a5c; }
   .btn-delete {
     background: none;
@@ -217,6 +224,49 @@
   .btn-enable:hover { background: #0a2a1a; color: #50c080; border-color: #1a6a3a; }
   .user-row.dead { opacity: 0.5; }
 
+  /* Role arrow buttons */
+  .btn-arrow {
+    background: none;
+    border: none;
+    color: #444;
+    font-size: 11px;
+    padding: 0 2px;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.1s;
+    flex-shrink: 0;
+  }
+  .btn-arrow:hover { color: #ccc; }
+  .btn-arrow:disabled { opacity: 0.2; cursor: default; }
+
+  /* Mod toggle button */
+  .btn-mod {
+    background: none;
+    border: 1px solid #3d2a6e;
+    border-radius: 5px;
+    color: #a78bfa;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .btn-mod:hover { background: #1e1a2e; color: #c4b5fd; border-color: #6d4aae; }
+
+  /* Memes button */
+  .btn-memes {
+    background: none;
+    border: 1px solid #1a3a2a;
+    border-radius: 5px;
+    color: #3a9060;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .btn-memes:hover { background: #0a2a1a; color: #50c080; border-color: #1a6a3a; }
+
   /* Permissions button */
   .btn-perms {
     background: none;
@@ -359,7 +409,7 @@
     <div id="user-list"><div class="empty">Loading…</div></div>
   </section>
 
-  <section>
+  <section id="section-bans">
     <h2>Banned IPs</h2>
     <div id="ban-list"><div class="empty">Loading…</div></div>
     <div class="ban-form">
@@ -368,7 +418,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="section-memes">
     <h2>Meme Videos</h2>
     <div id="meme-list"><div class="empty">Loading…</div></div>
     <div class="ban-form" style="margin-top:12px">
@@ -377,7 +427,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="section-add-account">
     <h2>Add Account</h2>
     <div class="form-row">
       <div style="flex:1">
@@ -390,8 +440,12 @@
       </div>
     </div>
     <div class="checkbox-row">
-      <input type="checkbox" id="new-admin">
+      <input type="checkbox" id="new-admin" onchange="if(this.checked)document.getElementById('new-moderator').checked=false">
       <label for="new-admin">Admin privileges</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="new-moderator" onchange="if(this.checked)document.getElementById('new-admin').checked=false">
+      <label for="new-moderator">Moderator privileges</label>
     </div>
     <button class="btn-add" onclick="addUser()">Add Account</button>
   </section>
@@ -419,15 +473,36 @@
   </div>
 </div>
 
+<div id="meme-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeMemeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="meme-modal-title">Meme Access</span>
+      <button class="modal-close" onclick="closeMemeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="checkbox-row">
+        <input type="checkbox" id="meme-unrestricted" onchange="onMemeUnrestrictedChange()">
+        <label for="meme-unrestricted">All memes (unrestricted)</label>
+      </div>
+      <div id="meme-modal-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeMemeModal()">Cancel</button>
+      <button class="btn-add" onclick="saveMemeAccess()">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let currentUser = null;
+let _meRole = { admin: false, moderator: false };
 
 async function loadUsers() {
   const res = await fetch('/admin/api/users');
   if (!res.ok) return;
   const users = await res.json();
 
-  // identify logged-in user from the page (passed via meta or infer)
+  const iAmAdmin = _meRole.admin;
   const list = document.getElementById('user-list');
   if (!users.length) {
     list.innerHTML = '<div class="empty">No accounts found.</div>';
@@ -442,23 +517,47 @@ async function loadUsers() {
     const loginInfo = u.last_login_at
       ? `${fmtDate(u.last_login_at)} · ${esc(u.last_login_ip || '?')}`
       : 'Never logged in';
-    const permsBtn = u.admin ? '' : `<button class="btn-perms" onclick="openPermModal('${esc(u.username)}')">Perms</button>`;
+
+    const targetIsPlain = !u.admin && !u.moderator;
+    const canManage = !u.admin && (iAmAdmin || targetIsPlain);
+    const currentRole = u.admin ? 'admin' : u.moderator ? 'mod' : 'user';
+
+    const permsBtn = canManage ? `<button class="btn-perms" onclick="openPermModal('${esc(u.username)}')">Perms</button>` : '';
+    const memesBtn = canManage ? `<button class="btn-memes" onclick="openMemeModal('${esc(u.username)}')">Memes</button>` : '';
+    const aliveBtn = canManage
+      ? `<button class="${u.alive ? 'btn-disable' : 'btn-enable'}" onclick="toggleAlive('${esc(u.username)}', ${u.alive}, this)">${u.alive ? 'Disable' : 'Enable'}</button>`
+      : '';
+    const deleteBtn = iAmAdmin ? `<button class="btn-delete" onclick="deleteUser('${esc(u.username)}', this)">Delete</button>` : '';
+
+    const isSelf = u.username === _meRole.username;
+    const canArrow = iAmAdmin && !u.admin && !isSelf;
+    // only promote up to one level below the viewer (mod is the ceiling for admins)
+    const upArrow = canArrow && !u.moderator
+      ? `<button class="btn-arrow" onclick="changeRole('${esc(u.username)}', '${currentRole}', 'up', this)" title="Promote">▲</button>`
+      : '';
+    const downArrow = canArrow && u.moderator
+      ? `<button class="btn-arrow" onclick="changeRole('${esc(u.username)}', '${currentRole}', 'down', this)" title="Demote">▼</button>`
+      : '';
+
     const dot = `<span class="status-dot ${u.online ? 'online' : 'offline'}" title="${u.online ? 'Online' : 'Offline'}"></span>`;
     if (!u.alive) row.classList.add('dead');
-    const aliveLabel = u.alive ? 'Disable' : 'Enable';
-    const aliveClass = u.alive ? 'btn-disable' : 'btn-enable';
-    const roleBadge = u.admin ? `<span class="badge badge-admin">Admin</span>` : '';
+    const roleBadge = u.admin
+      ? `<span class="badge badge-admin">Admin</span>`
+      : u.moderator ? `<span class="badge badge-mod">Mod</span>` : '';
     const aliveBadge = u.alive ? '' : `<span class="badge badge-dead">Disabled</span>`;
     row.innerHTML = `
       <div class="user-info">
-        <span class="user-name">${dot}${esc(u.username)}</span>
+        <span class="user-name">${dot}${esc(u.username)}${upArrow}${downArrow}</span>
         <span class="user-last-login">${loginInfo}</span>
       </div>
-      ${aliveBadge}
-      ${roleBadge}
-      ${permsBtn}
-      <button class="${aliveClass}" onclick="toggleAlive('${esc(u.username)}', ${u.alive}, this)">${aliveLabel}</button>
-      <button class="btn-delete" onclick="deleteUser('${esc(u.username)}', this)">Delete</button>
+      <div class="user-actions">
+        ${aliveBadge}
+        ${roleBadge}
+        ${memesBtn}
+        ${permsBtn}
+        ${aliveBtn}
+        ${deleteBtn}
+      </div>
     `;
     list.appendChild(row);
   });
@@ -502,19 +601,21 @@ async function addUser() {
   const username = document.getElementById('new-username').value.trim();
   const password = document.getElementById('new-password').value;
   const is_admin = document.getElementById('new-admin').checked;
+  const is_moderator = document.getElementById('new-moderator').checked;
 
   if (!username || !password) { toast('Username and password required.', true); return; }
 
   const res = await fetch('/admin/api/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, admin: is_admin }),
+    body: JSON.stringify({ username, password, admin: is_admin, moderator: is_moderator }),
   });
   const body = await res.json();
   if (res.ok) {
     document.getElementById('new-username').value = '';
     document.getElementById('new-password').value = '';
     document.getElementById('new-admin').checked = false;
+    document.getElementById('new-moderator').checked = false;
     toast('Account created.');
     loadUsers();
   } else {
@@ -877,16 +978,150 @@ async function addMeme() {
   }
 }
 
+async function changeRole(username, currentRole, direction, btn) {
+  let patch;
+  if (direction === 'up') {
+    patch = currentRole === 'mod' ? { admin: true } : { moderator: true };
+  } else {
+    patch = currentRole === 'admin' ? { admin: false } : { moderator: false };
+  }
+  btn.disabled = true;
+  const res = await fetch(`/admin/api/users/${encodeURIComponent(username)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  const data = await res.json();
+  if (res.ok) {
+    toast('Role updated.');
+    loadUsers();
+  } else {
+    btn.disabled = false;
+    toast(data.error || 'Failed to update.', true);
+  }
+}
+
+// ── Meme access modal ─────────────────────────────────────────────────────────
+
+let memeModalUsername = null;
+let cachedMemeIds = null;
+let cachedMemeTitles = null;
+
+async function openMemeModal(username) {
+  memeModalUsername = username;
+  document.getElementById('meme-modal-title').textContent = `Meme Access — ${username}`;
+  document.getElementById('meme-modal-list').innerHTML = '<div class="tree-empty">Loading…</div>';
+  document.getElementById('meme-modal').style.display = 'flex';
+
+  const [allMemes, userMemeData] = await Promise.all([
+    cachedMemeIds
+      ? Promise.resolve(cachedMemeIds)
+      : fetch('/admin/api/memes').then(r => r.json()),
+    fetch(`/admin/api/users/${encodeURIComponent(username)}/memes`).then(r => r.json()),
+  ]);
+  if (!cachedMemeIds) cachedMemeIds = allMemes;
+
+  if (!cachedMemeTitles) {
+    cachedMemeTitles = await Promise.all(allMemes.map(id => fetchYtTitle(id)));
+  }
+
+  renderMemeModalList(allMemes, userMemeData.allowed_memes);
+}
+
+function closeMemeModal() {
+  document.getElementById('meme-modal').style.display = 'none';
+  memeModalUsername = null;
+}
+
+function onMemeUnrestrictedChange() {
+  const unrestricted = document.getElementById('meme-unrestricted').checked;
+  const listEl = document.getElementById('meme-modal-list');
+  listEl.style.opacity = unrestricted ? '0.35' : '1';
+  listEl.style.pointerEvents = unrestricted ? 'none' : '';
+}
+
+function renderMemeModalList(allMemes, allowedMemes) {
+  const unrestricted = allowedMemes === null;
+  document.getElementById('meme-unrestricted').checked = unrestricted;
+  const listEl = document.getElementById('meme-modal-list');
+  listEl.style.opacity = unrestricted ? '0.35' : '1';
+  listEl.style.pointerEvents = unrestricted ? 'none' : '';
+  listEl.innerHTML = '';
+
+  if (!allMemes.length) {
+    listEl.innerHTML = '<div class="tree-empty">No meme videos configured.</div>';
+    return;
+  }
+
+  const hr = document.createElement('hr');
+  hr.className = 'tree-divider';
+  listEl.appendChild(hr);
+
+  allMemes.forEach((id, idx) => {
+    const allowed = unrestricted || (allowedMemes && allowedMemes.includes(id));
+    const row = document.createElement('div');
+    row.className = 'tree-file-row';
+    row.style.padding = '5px 0';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.id = id;
+    cb.checked = !!allowed;
+    cb.style.accentColor = '#e63946';
+    cb.style.cursor = 'pointer';
+    const lbl = document.createElement('span');
+    lbl.className = 'tree-file-label';
+    lbl.textContent = (cachedMemeTitles && cachedMemeTitles[idx]) || id;
+    row.appendChild(cb);
+    row.appendChild(lbl);
+    listEl.appendChild(row);
+  });
+}
+
+async function saveMemeAccess() {
+  if (!memeModalUsername) return;
+  const unrestricted = document.getElementById('meme-unrestricted').checked;
+  let allowedMemes = null;
+  if (!unrestricted) {
+    allowedMemes = [];
+    document.querySelectorAll('#meme-modal-list input[type="checkbox"]').forEach(cb => {
+      if (cb.checked) allowedMemes.push(cb.dataset.id);
+    });
+  }
+  const res = await fetch(`/admin/api/users/${encodeURIComponent(memeModalUsername)}/memes`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ allowed_memes: allowedMemes }),
+  });
+  const body = await res.json();
+  if (res.ok) { closeMemeModal(); toast('Meme access saved.'); }
+  else toast(body.error || 'Failed to save.', true);
+}
+
 function heartbeat() {
   fetch('/api/heartbeat', { method: 'POST' });
 }
 
-loadUsers();
-loadBans();
-loadMemes();
-heartbeat();
-setInterval(heartbeat, 30000);
-setInterval(loadUsers, 30000);
+async function initPage() {
+  const res = await fetch('/api/me');
+  if (res.ok) _meRole = await res.json();
+
+  if (!_meRole.admin) {
+    document.getElementById('section-bans').style.display = 'none';
+    document.getElementById('section-memes').style.display = 'none';
+    document.getElementById('section-add-account').style.display = 'none';
+  }
+
+  loadUsers();
+  if (_meRole.admin) {
+    loadBans();
+    loadMemes();
+  }
+  heartbeat();
+  setInterval(heartbeat, 30000);
+  setInterval(loadUsers, 30000);
+}
+
+initPage();
 </script>
 </body>
 </html>
