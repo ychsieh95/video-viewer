@@ -1,5 +1,7 @@
 # Video Viewer
 
+![banner](assets/images/banner.png)
+
 A self-hosted Flask video streaming app with user authentication, profile management, per-user video permissions, meme video control, and an admin panel.
 
 ## Directory Structure
@@ -16,7 +18,8 @@ video-viewer/
 │   ├── index.html               # Video viewer UI
 │   ├── login.html               # Login page
 │   ├── meme.html                # Meme page shown after login
-│   └── profile.html             # User profile — password change & avatar upload
+│   └── profile.html             # User profile — password, avatar, language
+├── assets/                      # Static assets (banner image, etc.)
 ├── Dockerfile
 └── requirements.txt             # Python dependencies (flask, werkzeug)
 ```
@@ -99,29 +102,25 @@ videos/
 
 Files without an `EP##` prefix are assigned index `01` and sorted by filename.
 
-Use the scripts in `scripts/` to prepare files:
-
-```bash
-# Convert MKV → web-ready MP4 + VTT
-bash scripts/convert_for_web.sh /path/to/source /path/to/output
-
-# Normalize audio loudness to EBU R128 (-16 LUFS) — in-place, resumable
-bash scripts/normalize_audio.sh [search_dir]
-# Options: --log <file>  (custom log path)
-#          --clean       (remove .loudnorm_done markers to force re-run)
-```
-
 ## Features
 
 - **Login with rate limiting** — 3 failed attempts triggers a 15-minute IP ban
-- **User profiles** — change password and upload an avatar (JPG/PNG/GIF/WEBP, max 2 MB)
-- **Admin panel** — add/delete users, view last login info, manage IP bans, manage meme videos
+- **User profiles** — change password, upload an avatar (JPG/PNG/GIF/WEBP, max 2 MB), and set display language
+- **Language preference** — switch between English (`en`) and Traditional Chinese (`zh-TW`) per account
+- **Admin panel** — add/delete/disable users, view online status and last login, manage IP bans and meme videos
+- **User enable/disable** — admins can disable accounts to block login without deleting them
+- **Online presence** — admin panel shows which users are currently active
 - **Meme page** — plays a random YouTube video after login; users can skip for now, today, this week, or always
 - **Video permissions** — restrict each user to specific shows, sub-folders, or individual files; admins always have full access
+- **Watch history** — playback position is saved per file so users can resume where they left off
 - **Episode titles** — name files `EP## | Title.mp4` to display a human-readable title in the UI
 - **Subtitle support** — place a `.vtt` sidecar next to each `.mp4` for in-browser subtitles
 - **Range requests** — supports seeking via HTTP `Range` header
 - **Changelog** — in-app changelog at `/changelog`
+
+## Watch History
+
+The app automatically saves each user's playback position for every file. When a video is reopened, it resumes from the last saved position. Watch history can be cleared from the user's profile page.
 
 ## Video Permissions
 
