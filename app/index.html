@@ -211,17 +211,34 @@
     color: #999;
     border-bottom-color: transparent;
   }
-  .type-body .section-label { padding-left: 28px; }
   .type-body .ep-item { padding-left: 28px; }
 
   .section-label {
-    padding: 8px 14px 3px 20px;
     font-size: 10px;
     font-weight: 700;
     color: #e63946;
     letter-spacing: 1.2px;
     text-transform: uppercase;
   }
+
+  .section-header {
+    padding: 8px 14px 3px 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-header .arrow {
+    font-size: 9px;
+    color: #555;
+    transition: transform 0.15s;
+  }
+  .section-header.collapsed .arrow { transform: rotate(-90deg); }
+  .section-body.hidden { display: none; }
+  .type-body .section-header { padding-left: 28px; }
+  .section-body .ep-item { padding-left: 32px; }
+  .type-body .section-body .ep-item { padding-left: 40px; }
 
   .ep-item {
     padding: 6px 14px 6px 20px;
@@ -818,7 +835,7 @@ async function loadEpisodes() {
   }
 }
 
-function renderList(list) {
+function renderList(list, searchActive = false) {
   const container = document.getElementById('episode-list');
   container.innerHTML = '';
 
@@ -879,6 +896,7 @@ function renderList(list) {
       let showBody;
 
       if (multiShow) {
+        const hasAnySections = [...secMap.keys()].some(k => k !== '\x00');
         const header = document.createElement('div');
         header.className = 'show-header';
         header.dataset.collapseKey = 's:' + showName;
@@ -889,7 +907,9 @@ function renderList(list) {
         showBody.className = 'show-body';
         typeBody.appendChild(showBody);
 
-        if (collapseStates['s:' + showName]) {
+        const savedShowState = collapseStates['s:' + showName];
+        const showStartCollapsed = !searchActive && (savedShowState === undefined ? !hasAnySections : savedShowState);
+        if (showStartCollapsed) {
           header.classList.add('collapsed');
           showBody.classList.add('hidden');
         }
@@ -909,11 +929,42 @@ function renderList(list) {
       }
 
       secMap.forEach((eps, secKey) => {
-        if (secKey !== '\x00') {
-          const label = document.createElement('div');
-          label.className = 'section-label';
-          label.textContent = secKey;
-          showBody.appendChild(label);
+        const hasSection = secKey !== '\x00';
+        let epContainer = showBody;
+
+        if (hasSection) {
+          const secCollapseKey = 'sec:' + showName + ':' + secKey;
+
+          const secHeaderEl = document.createElement('div');
+          secHeaderEl.className = 'section-header';
+          secHeaderEl.dataset.collapseKey = secCollapseKey;
+          const secArrow = document.createElement('span');
+          secArrow.className = 'arrow';
+          secArrow.textContent = '▼';
+          const secLabelEl = document.createElement('span');
+          secLabelEl.className = 'section-label';
+          secLabelEl.textContent = secKey;
+          secHeaderEl.appendChild(secArrow);
+          secHeaderEl.appendChild(secLabelEl);
+          showBody.appendChild(secHeaderEl);
+
+          const secBody = document.createElement('div');
+          secBody.className = 'section-body';
+          showBody.appendChild(secBody);
+          epContainer = secBody;
+
+          const savedState = collapseStates[secCollapseKey];
+          const startCollapsed = !searchActive && (savedState === undefined ? true : savedState);
+          if (startCollapsed) {
+            secHeaderEl.classList.add('collapsed');
+            secBody.classList.add('hidden');
+          }
+
+          secHeaderEl.addEventListener('click', () => {
+            secHeaderEl.classList.toggle('collapsed');
+            secBody.classList.toggle('hidden');
+            saveCollapseState(secCollapseKey, secHeaderEl.classList.contains('collapsed'));
+          });
         }
 
         eps.forEach(ep => {
@@ -934,7 +985,7 @@ function renderList(list) {
             item.appendChild(bar);
           }
           item.addEventListener('click', () => playEpisode(origIdx));
-          showBody.appendChild(item);
+          epContainer.appendChild(item);
         });
       });
     });
@@ -1054,7 +1105,7 @@ document.getElementById('search').addEventListener('input', e => {
         String(ep.ep).includes(q)
       )
     : episodes;
-  renderList(filtered);
+  renderList(filtered, !!q);
 });
 
 function toggleAvatarMenu(e) {

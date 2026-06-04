@@ -112,6 +112,7 @@ Files without an `EP##` prefix are assigned index `01` and sorted by filename.
 - **Online presence** — admin panel shows which users are currently active
 - **Meme page** — plays a random YouTube video after login; users can skip for now, today, this week, or always
 - **Video permissions** — restrict each user to specific shows, sub-folders, or individual files; admins always have full access
+- **Collapsible sidebar** — the video hierarchy (type → show → section → episodes) expands to three levels by default; episodes are hidden until a section or show is clicked, with collapse state saved per session in `localStorage`
 - **Watch history** — playback position is saved per file so users can resume where they left off
 - **Episode titles** — name files `EP## | Title.mp4` to display a human-readable title in the UI
 - **Subtitle support** — place a `.vtt` sidecar next to each `.mp4` for in-browser subtitles
