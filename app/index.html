@@ -873,7 +873,8 @@ function renderList(list, searchActive = false) {
       typeBody.className = 'type-body';
       container.appendChild(typeBody);
 
-      if (collapseStates['t:' + typeName]) {
+      const savedTypeState = collapseStates['t:' + typeName];
+      if (savedTypeState === undefined ? false : savedTypeState) {
         header.classList.add('collapsed');
         typeBody.classList.add('hidden');
       }
@@ -908,7 +909,7 @@ function renderList(list, searchActive = false) {
         typeBody.appendChild(showBody);
 
         const savedShowState = collapseStates['s:' + showName];
-        const showStartCollapsed = !searchActive && (savedShowState === undefined ? !hasAnySections : savedShowState);
+        const showStartCollapsed = !searchActive && (savedShowState === undefined ? true : savedShowState);
         if (showStartCollapsed) {
           header.classList.add('collapsed');
           showBody.classList.add('hidden');
