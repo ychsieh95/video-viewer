@@ -38,8 +38,8 @@ AVATARS_DIR.mkdir(exist_ok=True)
 ALLOWED_IMG = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
-EP_RE = re.compile(r"EP(\d+)", re.IGNORECASE)
-_EP_TITLE_RE = re.compile(r"^EP\d+\s*\|\s*(.+)$", re.IGNORECASE)
+EP_RE = re.compile(r"EP(\d+(?:\.\d+)?)", re.IGNORECASE)
+_EP_TITLE_RE = re.compile(r"^EP\d+(?:\.\d+)?\s*\|\s*(.+)$", re.IGNORECASE)
 IGNORED = {".venv", "__pycache__", ".git", ".claude"}
 
 
@@ -598,9 +598,9 @@ def admin_set_permissions(username: str):
 
 # ── Video routes ──────────────────────────────────────────────────────────────
 
-def ep_num(name: str) -> int:
+def ep_num(name: str) -> float:
     m = EP_RE.search(name)
-    return int(m.group(1)) if m else 1
+    return float(m.group(1)) if m else 1
 
 
 def scan_videos(allowed_paths=None) -> list[dict]:

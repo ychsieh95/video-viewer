@@ -790,6 +790,12 @@ function fmtTime(sec) {
     : `${m}:${String(s).padStart(2,'0')}`;
 }
 
+function fmtEp(n) {
+  const whole = Math.floor(n);
+  const frac = n - whole;
+  return String(whole).padStart(2, '0') + (frac > 0 ? '.' + Math.round(frac * 10) : '');
+}
+
 let toastTimer;
 function toast(msg) {
   const el = document.getElementById('toast');
@@ -975,7 +981,7 @@ function renderList(list, searchActive = false) {
           item.dataset.idx = origIdx;
           const rec = getRecord(ep.path);
           item.innerHTML = `
-            <span class="ep-num">${String(ep.ep).padStart(2, '0')}</span>
+            <span class="ep-num">${fmtEp(ep.ep)}</span>
             <span class="ep-title">${ep.title}</span>
             ${rec && rec.duration ? `<span class="ep-time">${fmtTime(rec.position)} / ${fmtTime(rec.duration)}</span>` : ''}
           `;
